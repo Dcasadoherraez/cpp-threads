@@ -123,6 +123,33 @@ multi_threaded_ekf_node/fast:
 	$(MAKE) -f CMakeFiles/multi_threaded_ekf_node.dir/build.make CMakeFiles/multi_threaded_ekf_node.dir/build
 .PHONY : multi_threaded_ekf_node/fast
 
+src/drawer.o: src/drawer.cpp.o
+
+.PHONY : src/drawer.o
+
+# target to build an object file
+src/drawer.cpp.o:
+	$(MAKE) -f CMakeFiles/multi_threaded_ekf_node.dir/build.make CMakeFiles/multi_threaded_ekf_node.dir/src/drawer.cpp.o
+.PHONY : src/drawer.cpp.o
+
+src/drawer.i: src/drawer.cpp.i
+
+.PHONY : src/drawer.i
+
+# target to preprocess a source file
+src/drawer.cpp.i:
+	$(MAKE) -f CMakeFiles/multi_threaded_ekf_node.dir/build.make CMakeFiles/multi_threaded_ekf_node.dir/src/drawer.cpp.i
+.PHONY : src/drawer.cpp.i
+
+src/drawer.s: src/drawer.cpp.s
+
+.PHONY : src/drawer.s
+
+# target to generate assembly for a file
+src/drawer.cpp.s:
+	$(MAKE) -f CMakeFiles/multi_threaded_ekf_node.dir/build.make CMakeFiles/multi_threaded_ekf_node.dir/src/drawer.cpp.s
+.PHONY : src/drawer.cpp.s
+
 src/ekf.o: src/ekf.cpp.o
 
 .PHONY : src/ekf.o
@@ -186,6 +213,9 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
 	@echo "... multi_threaded_ekf_node"
+	@echo "... src/drawer.o"
+	@echo "... src/drawer.i"
+	@echo "... src/drawer.s"
 	@echo "... src/ekf.o"
 	@echo "... src/ekf.i"
 	@echo "... src/ekf.s"
