@@ -1,6 +1,10 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <stdlib.h>
+
 #include <ekf.h>
+
+using namespace std;
 
 EKF::EKF(Eigen::Matrix<double, 2, 2> sensor_uncertainty, double dt) {
     Q = sensor_uncertainty;
@@ -8,6 +12,7 @@ EKF::EKF(Eigen::Matrix<double, 2, 2> sensor_uncertainty, double dt) {
 
     // initialize the pose to the origin of local coordinates
     x_t = Eigen::Matrix<double, dim, 1>::Zero();
+    x_gt = Eigen::Matrix<double, dim, 1>::Zero();
 
     // initialize input to zero
     u_t = Eigen::Matrix<double, 1, 2>::Zero();
@@ -36,8 +41,9 @@ void EKF::predictState() {
 
     }
     
-    x_t_pred.block(0, 0, 2, 1) += update;
+    x_t_pred.block(0, 0, 3, 1) += update;
 }
+
 void EKF::predictObservation() {
     Eigen::Matrix<double, 3, 3> G_t_x;
 
@@ -53,49 +59,102 @@ void EKF::predictObservation() {
     
     G_t_x += Eigen::Matrix<double, 3, 3>::Identity();
 
-    G_t.block(0, 0, 2, 2) = G_t_x; 
+    G_t.block(0, 0, 3, 3) = G_t_x; 
 
     sigma_t_pred = G_t * sigma_t * G_t.transpose() + R;
 }
 
-void EKF::correctionStep(Eigen::Matrix<double, 2, 1> observation, int id) {
-    // observation has the form of range sensor measurement: zt(r, phi)
-    double r = observation[0];
-    double phi = observation[1];
+void EKF::correctionStep() {
 
-    if (map[id].count() == 0) {
-        Eigen::Matrix<double, 2, 1> relative_measurement;
-        relative_measurement << r * cos(phi + x_t_pred[2]),
-                                r * sin(phi + x_t_pred[2]);
+    for (auto obs : z_t) {
+        int id = obs.first;
+        Eigen::Vector2d observation = obs.second;
+        // observation has the form of range sensor measurement: zt(r, phi)
+        double r = observation[0];
+        double phi = observation[1];
 
-        map[id] = x_t_pred.block(0, 0, 2, 1) + relative_measurement;
+        if (map[id].count() == 0) {
+            Eigen::Matrix<double, 2, 1> relative_measurement;
+            relative_measurement << r * cos(phi + x_t_pred[2]),
+                                    r * sin(phi + x_t_pred[2]);
+
+            map[id] = x_t_pred.block(0, 0, 2, 1) + relative_measurement;
+
+            // update landmark location estimate
+            int landmark_idx = 3 + id*2;
+            x_t_pred[landmark_idx] = x_t_pred[0] + relative_measurement[0];
+            x_t_pred[landmark_idx + 1] = x_t_pred[1] + relative_measurement[1];
+
+        }
+
+        // delta = landmark pose - robot pose
+        Eigen::Matrix<double, 2, 1> delta;
+        delta << map[id][0] - x_t_pred[0],
+                map[id][1] - x_t_pred[1];
+
+        double q = delta.transpose() * delta;
+
+        Eigen::Matrix<double, 2, 1> z_pred;
+        z_pred << pow(q, 0.5), 
+                atan2(delta[0], delta[1] - x_t_pred[2]);
+
+        Eigen::Matrix<double, 5, dim> F = Eigen::Matrix<double, 5, dim>::Zero();
+        F.block(0, 0, 2, 2) = Eigen::Matrix<double, 3, 3>::Identity();
+        int set_idx = 3 + 2*id;
+        F(3, set_idx) = 1;
+        F(4, set_idx + 1) = 1;
+
+        Eigen::Matrix<double, 2, 5> H_low;
+        H_low << -pow(q, 0.5) * delta[0], -pow(q, 0.5) * delta[1],  0 , pow(q, 0.5) * delta[0], pow(q, 0.5) * delta[1],
+                delta[1]              , -delta[0]              , -q ,              -delta[1],               delta[0];
+        H_low *= 1/q; // size: 2 x 5
+        H_t = H_low * F; // size: 2 x 3 + 2N
+
+        K_t = (sigma_t_pred * H_t.transpose()) * (H_t * sigma_t_pred * H_t.transpose() + Q).inverse(); // size K_t: 3 + 2N x 2
+        x_t = x_t_pred + K_t * (observation - z_pred); // size: 3 + 2N x 1
+
+        sigma_t = (Eigen::Matrix<double, dim ,dim>::Identity() - K_t * H_t) * sigma_t_pred; //size: 3 + 2N x 3 + 2N
+
     }
+}
 
-    // delta = landmark pose - robot pose
-    Eigen::Matrix<double, 2, 1> delta;
-    delta << map[id][0] - x_t_pred[0],
-             map[id][1] - x_t_pred[1];
+void EKF::ComputeStateGT() {
+    Eigen::Matrix<double, 3, 1> update;
 
-    double q = delta.transpose() * delta;
+    if (u_t[1] != 0) {
+        update << -u_t[0] / u_t[1] * sin(x_gt[2]) + u_t[0] / u_t[1] * sin(x_gt[2] + u_t[1] * delta_t),
+                   u_t[0] / u_t[1] * cos(x_gt[2]) - u_t[0] / u_t[1] * cos(x_gt[2] + u_t[1] * delta_t),
+                   u_t[1] * delta_t;
+    } else {
+        update << u_t[0] * sin(x_gt[2]),
+                  u_t[0] * cos(x_gt[2]),
+                  u_t[1] * delta_t;
 
-    Eigen::Matrix<double, 2, 1> z_pred;
-    z_pred << pow(q, 0.5), 
-              atan2(delta[0], delta[1] - x_t_pred[2]);
+    }
+    
+    x_gt.block(0, 0, 3, 1) += update;
+}
 
-    Eigen::Matrix<double, 5, dim> F = Eigen::Matrix<double, 5, dim>::Zero();
-    F.block(0, 0, 2, 2) = Eigen::Matrix<double, 3, 3>::Identity();
-    int set_idx = 3 + 2*id;
-    F(3, set_idx) = 1;
-    F(4, set_idx + 1) = 1;
+void EKF::ComputeObsGT() {
+    for (auto obs : z_t) {
+        int id = obs.first;
+        Eigen::Vector2d observation = obs.second;
 
-    Eigen::Matrix<double, 2, 5> H_low;
-    H_low << -pow(q, 0.5) * delta[0], -pow(q, 0.5) * delta[1],  0 , pow(q, 0.5) * delta[0], pow(q, 0.5) * delta[1],
-              delta[1]              , -delta[0]              , -q ,              -delta[1],               delta[0];
-    H_low *= 1/q; // size: 2 x 5
-    H_t = H_low * F; // size: 2 x 3 + 2N
+        if (map_gt[id].count() == 0) {
+            // observation has the form of range sensor measurement: zt(r, phi)
+            double r = observation[0];
+            double phi = observation[1];
 
-    K_t = (sigma_t_pred * H_t.transpose()) * (H_t * sigma_t_pred * H_t.transpose() + Q).inverse(); // size K_t: 3 + 2N x 2
-    x_t = x_t_pred + K_t * (observation - z_pred); // size: 3 + 2N x 1
+            Eigen::Matrix<double, 2, 1> relative_measurement;
+            relative_measurement << r * cos(phi + x_gt[2]),
+                                    r * sin(phi + x_gt[2]);
 
-    sigma_t = (Eigen::Matrix<double, dim ,dim>::Identity() - K_t * H_t) * sigma_t_pred; //size: 3 + 2N x 3 + 2N
+            map_gt[id] = x_gt.block(0, 0, 2, 1) + relative_measurement;
+
+            // update landmark location estimate
+            int landmark_idx = 3 + id*2;
+            x_gt[landmark_idx] = x_gt[0] + relative_measurement[0];
+            x_gt[landmark_idx + 1] = x_gt[1] + relative_measurement[1];
+        }
+    }
 }

@@ -16,7 +16,8 @@ public:
 
     Drawer(string background_path);
 
-    void DrawPrediction(Eigen::Vector2d pos);
-    void DrawState(Eigen::Vector2d pos);
+    void DrawPrediction(Eigen::Vector3d pos);
+    void DrawState(Eigen::Vector3d pos);
     void Update();
+    void DrawLandmarks(unordered_map<int, Eigen::Matrix<double, 2, 1>>positions);
 };
