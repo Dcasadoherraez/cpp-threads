@@ -6,10 +6,8 @@
 
 using namespace std;
 
-EKF::EKF(Eigen::Matrix<double, 2, 2> sensor_uncertainty, double dt) {
+EKF::EKF(Eigen::Matrix2d sensor_uncertainty, double dt) {
     Q = sensor_uncertainty;
-    R = Eigen::Matrix<double, dim, dim>::Zero();
-
     // initialize the pose to the origin of local coordinates
     x_t = Eigen::Matrix<double, dim, 1>::Zero();
     x_t_pred = x_t;
@@ -53,19 +51,23 @@ void EKF::predictObservation() {
     Eigen::Matrix<double, 3, 3> G_t_x;
 
     if (u_t[1] != 0) {
-        G_t_x << 0, 0, -u_t[0] / u_t[1] * cos(x_t_pred[2]) + u_t[0] / u_t[1] * cos(x_t_pred[2] + u_t[1] * delta_t),
-                 0, 0, -u_t[0] / u_t[1] * sin(x_t_pred[2]) + u_t[0] / u_t[1] * sin(x_t_pred[2] + u_t[1] * delta_t),
-                 0, 0, 0;
+        G_t_x << 1, 0, -u_t[0] / u_t[1] * cos(x_t_pred[2]) + u_t[0] / u_t[1] * cos(x_t_pred[2] + u_t[1] * delta_t),
+                 0, 1, -u_t[0] / u_t[1] * sin(x_t_pred[2]) + u_t[0] / u_t[1] * sin(x_t_pred[2] + u_t[1] * delta_t),
+                 0, 0, 1;
     } else {
-        G_t_x << 0, 0,  -sin(x_t_pred[2]),
-                 0, 0,   cos(x_t_pred[2]),
-                 0, 0, 0;
+        G_t_x << 1, 0, -u_t[0] * sin(x_t_pred[2]),
+                 0, 1,  u_t[0] * cos(x_t_pred[2]),
+                 0, 0,  1;
     }
     
-    G_t_x += Eigen::Matrix<double, 3, 3>::Identity();
-
     G_t.block(0, 0, 3, 3) = G_t_x; 
-    sigma_t_pred = G_t * sigma_t * G_t.transpose() + R;
+
+    R_t << 0.02 , 0  ,    0,
+           0   , 0.02,    0,
+           0   , 0  , 0.002;
+
+    sigma_t_pred = G_t * sigma_t * G_t.transpose();
+    sigma_t_pred.block(0, 0, 3, 3) += R_t;
 }
 
 void EKF::correctionStep() {
@@ -73,11 +75,12 @@ void EKF::correctionStep() {
     for (auto obs : z_t) {
         int id = obs.first;
         Eigen::Vector2d observation = obs.second;
+
         // observation has the form of range sensor measurement: zt(r, phi)
         double r = observation[0];
         double phi = observation[1];
 
-        if (map[id].count() == 0) {
+        if (map.count(id) == 0) {
             Eigen::Matrix<double, 2, 1> relative_measurement;
             relative_measurement << r * cos(phi + x_t_pred[2]),
                                     r * sin(phi + x_t_pred[2]);
@@ -88,33 +91,32 @@ void EKF::correctionStep() {
             int landmark_idx = 3 + id*2;
             x_t_pred[landmark_idx] = x_t_pred[0] + relative_measurement[0];
             x_t_pred[landmark_idx + 1] = x_t_pred[1] + relative_measurement[1];
-
         }
 
-        // delta = landmark pose - robot pose
+        // delta = landmark pose - robot pose (same as relative measurement)
         Eigen::Matrix<double, 2, 1> delta;
         delta << map[id][0] - x_t_pred[0],
                  map[id][1] - x_t_pred[1];
 
         double q = delta.transpose() * delta;
+        double q_sqrt = pow(q, 0.5);
 
         Eigen::Matrix<double, 2, 1> z_pred;
-        z_pred << pow(q, 0.5), 
-                  atan2(delta[0], delta[1]) - x_t_pred[2];
-        cout << "Zpred: \n" << z_pred.matrix() << endl;
+        z_pred << q_sqrt, 
+                  atan2(delta[1], delta[0]) - x_t_pred[2];
+        
         Eigen::Matrix<double, 5, dim> F = Eigen::Matrix<double, 5, dim>::Zero();
-        F.block(0, 0, 2, 2) = Eigen::Matrix<double, 3, 3>::Identity();
-        int set_idx = 3 + 2*id;
-        F(3, set_idx) = 1;
-        F(4, set_idx + 1) = 1;
+        F.block(0, 0, 3, 3) = Eigen::Matrix3d::Identity();
+        F.block(3, 3 + 2*id, 2, 2) = Eigen::Matrix2d::Identity();
 
         Eigen::Matrix<double, 2, 5> H_low;
-        H_low << -pow(q, 0.5) * delta[0], -pow(q, 0.5) * delta[1],  0 , pow(q, 0.5) * delta[0], pow(q, 0.5) * delta[1],
-                delta[1]              , -delta[0]              , -q ,              -delta[1],               delta[0];
+        H_low << -q_sqrt * delta[0], -q_sqrt * delta[1],  0 , q_sqrt * delta[0], q_sqrt * delta[1],
+                  delta[1]         , -delta[0]         , -q ,         -delta[1],          delta[0];
+
         H_low *= 1/q; // size: 2 x 5
         H_t = H_low * F; // size: 2 x 3 + 2N
 
-        K_t = (sigma_t_pred * H_t.transpose()) * (H_t * sigma_t_pred * H_t.transpose() + Q).inverse(); // size K_t: 3 + 2N x 2
+        K_t = sigma_t_pred * H_t.transpose() * (H_t * sigma_t_pred * H_t.transpose() + Q).inverse(); // size K_t: 3 + 2N x 5
         x_t_pred = x_t_pred + K_t * (observation - z_pred); // size: 3 + 2N x 1
 
         sigma_t_pred = (Eigen::Matrix<double, dim ,dim>::Identity() - K_t * H_t) * sigma_t_pred; //size: 3 + 2N x 3 + 2N
@@ -123,6 +125,11 @@ void EKF::correctionStep() {
 
     x_t = x_t_pred;
     sigma_t = sigma_t_pred;
+}
+
+void EKF::PredictionStep() {
+    predictState();
+    predictObservation();
 }
 
 void EKF::ComputeStateGT() {
@@ -145,8 +152,8 @@ void EKF::ComputeObsGT() {
     for (auto obs : z_t) {
         int id = obs.first;
         Eigen::Vector2d observation = obs.second;
-        cout << "idddd " << id  << ":" << map_gt[id].count() << endl;
-        if (map_gt[id].count() == 0) {
+
+        if (map_gt.count(id) == 0) {
             // observation has the form of range sensor measurement: zt(r, phi)
             double r = observation[0];
             double phi = observation[1];
@@ -157,7 +164,6 @@ void EKF::ComputeObsGT() {
 
             map_gt[id] = x_gt.block(0, 0, 2, 1) + relative_measurement;
 
-            cout << id << ":" << map_gt[id][0] << "," << map_gt[id][1] << endl;
             // update landmark location estimate
             int landmark_idx = 3 + id*2;
             x_gt[landmark_idx] = x_gt[0] + relative_measurement[0];

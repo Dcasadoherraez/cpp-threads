@@ -14,11 +14,11 @@ public:
     static const int dim = 2 * N + 3;
     double delta_t;
 
-    Eigen::Matrix<double, 2, 2> Q;
-    Eigen::Matrix<double, dim, dim> R;
+    Eigen::Matrix2d Q;
+    Eigen::Matrix3d R_t;
 
     // current input
-    Eigen::Matrix<double, 1, 2> u_t;
+    Eigen::Vector2d u_t;
     unordered_map<int, Eigen::Vector2d> z_t;
 
     Eigen::Matrix<double, dim, 1> x_t, x_t_pred, x_gt;
@@ -32,12 +32,14 @@ public:
     // landmark vector {id, [x, y]}
     unordered_map<int, Eigen::Vector2d> map, map_gt;
 
-    EKF(Eigen::Matrix<double, 2, 2> sensor_uncertainty, double dt);
+    EKF(Eigen::Matrix2d sensor_uncertainty, double dt);
 
     ~EKF() {}
 
     void predictState();
     void predictObservation();
+
+    void PredictionStep();
     void correctionStep();
 
     void ComputeStateGT();

@@ -64,14 +64,13 @@ void Drawer::DrawLandmarks(unordered_map<int, Eigen::Vector2d> positions, bool p
   }
 
   for (auto pos : positions) {
-    cout << "HEY: " << pos.second[0] << "," << pos.second[1] << endl;
 
     cv::Point topleft, bottomright;
-    topleft.x = pos.second[0];
-    topleft.y = pos.second[1];
+    topleft.x = pos.second[0] - 5;
+    topleft.y = pos.second[1] - 5;
 
-    bottomright.x = pos.second[0] + 10;
-    bottomright.y = pos.second[1] + 10;
+    bottomright.x = pos.second[0] + 5;
+    bottomright.y = pos.second[1] + 5;
 
     cv::rectangle( current_drawing,
       topleft, bottomright,
@@ -100,7 +99,7 @@ cv::RotatedRect Drawer::GetErrorEllipse(Eigen::Vector2d pt, Eigen::Matrix3d cov)
   cv::Mat covmat;
   cv::eigen2cv(cov, covmat);
 
-  double chisquare_val = 10.4477;
+  double chisquare_val = 1; // 2.4477
 	//Get the eigenvalues and eigenvectors
 	cv::Mat eigenvalues, eigenvectors;
 	cv::eigen(covmat, eigenvalues, eigenvectors);
@@ -120,7 +119,7 @@ cv::RotatedRect Drawer::GetErrorEllipse(Eigen::Vector2d pt, Eigen::Matrix3d cov)
 	double halfminoraxissize=chisquare_val*sqrt(eigenvalues.at<double>(1));
 
   // cout << covmat << endl;
-  // cout << halfmajoraxissize << "," << halfminoraxissize << endl;
+  cout << "Ellipse: " << halfmajoraxissize << "," << halfminoraxissize << endl;
 
 	//Return the oriented ellipse
 	//The -angle is used because OpenCV defines the angle clockwise instead of anti-clockwise

@@ -76,7 +76,13 @@ int main(int argc, char **argv) {
     cout << "Kalman Filter" << endl;
     string background = "../plot.jpg";
 
-    Eigen::Matrix<double, 2, 2> Q = Eigen::Matrix<double, 2, 2>::Zero();
+    double sigma_v = 0;
+    double sigma_w = 0;
+
+    Eigen::Matrix2d Q;
+    Q << sigma_v,    0, 
+            0, sigma_w;
+            
     double dt = 1;
 
     EKF::Ptr ekf(new EKF(Q, dt)); 
@@ -97,22 +103,23 @@ int main(int argc, char **argv) {
 
         printState(ekf->x_gt);
         printLandmarks(ekf->map_gt);
-        // ekf->predictState();
-        // ekf->predictObservation();
-        // ekf->correctionStep();
 
+        // Predict 
+        ekf->PredictionStep();
+        cout << "Predicted pose (prediction step): \n" << ekf->x_t_pred << endl;
+        cout << "Predicted sigma (prediction step): \n" << ekf->sigma_t_pred << endl;
 
         drawer->DrawState(ekf->x_gt.block(0, 0, 3, 1), Eigen::Matrix3d::Zero(), false);
         drawer->DrawLandmarks(ekf->map_gt, false);
 
-        drawer->DrawState(ekf->x_t_pred.block(0, 0, 3, 1), ekf->sigma_t_pred.block(0, 0, 3, 3), true);
-        // drawer->DrawLandmarks(ekf->map, true);
-
-        cout << "Predicted pose (prediction step): \n" << ekf->x_t_pred << endl;
-        cout << "Predicted sigma (prediction step): \n" << ekf->sigma_t_pred << endl;
-
+        // Correct
+        ekf->correctionStep();
         cout << "Predicted pose (correction step): \n" << ekf->x_t << endl;
         cout << "Predicted sigma (correction step): \n" << ekf->sigma_t << endl;
+
+        drawer->DrawState(ekf->x_t.block(0, 0, 3, 1), ekf->sigma_t.block(0, 0, 3, 3), true);
+        drawer->DrawLandmarks(ekf->map, true);
+
 
         cv::imshow("image", drawer->current_drawing);
         cv::waitKey(0);

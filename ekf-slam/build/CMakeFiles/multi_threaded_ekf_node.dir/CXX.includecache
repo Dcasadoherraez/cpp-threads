@@ -30,18 +30,6 @@ memory
 unordered_map
 -
 
-/ssd1_lin/UniversityProjects/cpp-threads/ekf-slam/src/ekf.cpp
-Eigen/Core
--
-Eigen/Geometry
--
-stdlib.h
--
-iostream
--
-ekf.h
--
-
 /ssd1_lin/UniversityProjects/cpp-threads/ekf-slam/src/main.cpp
 stdlib.h
 -
