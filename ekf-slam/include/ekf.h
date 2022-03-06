@@ -19,7 +19,7 @@ public:
 
     // current input
     Eigen::Matrix<double, 1, 2> u_t;
-    vector<pair<int, Eigen::Vector2d>> z_t;
+    unordered_map<int, Eigen::Vector2d> z_t;
 
     Eigen::Matrix<double, dim, 1> x_t, x_t_pred, x_gt;
     Eigen::Matrix<double, dim, dim> sigma_t, sigma_t_pred;
@@ -30,9 +30,11 @@ public:
     Eigen::Matrix<double, dim, 2> K_t;
 
     // landmark vector {id, [x, y]}
-    unordered_map<int, Eigen::Matrix<double, 2, 1>> map, map_gt;
+    unordered_map<int, Eigen::Vector2d> map, map_gt;
 
     EKF(Eigen::Matrix<double, 2, 2> sensor_uncertainty, double dt);
+
+    ~EKF() {}
 
     void predictState();
     void predictObservation();

@@ -31,4 +31,4 @@
 *.out
 *.app
 
-*/build/*
+ekf-slam/build/*
