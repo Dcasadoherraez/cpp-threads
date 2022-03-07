@@ -18,7 +18,7 @@ public:
     Eigen::Matrix3d R_t;
 
     // current input
-    Eigen::Vector2d u_t;
+    Eigen::Vector3d u_t;
     unordered_map<int, Eigen::Vector2d> z_t;
 
     Eigen::Matrix<double, dim, 1> x_t, x_t_pred, x_gt;
@@ -30,18 +30,18 @@ public:
     Eigen::Matrix<double, dim, 2> K_t;
 
     // landmark vector {id, [x, y]}
-    unordered_map<int, Eigen::Vector2d> map, map_gt;
+    unordered_map<int, Eigen::Vector2d> map_t, map_gt;
 
-    EKF(Eigen::Matrix2d sensor_uncertainty, double dt);
+    EKF(Eigen::Matrix2d sensor_uncertainty, Eigen::Matrix3d motion_uncertainty, double dt);
 
     ~EKF() {}
-
-    void predictState();
-    void predictObservation();
+    
+    double ConstrainAngle(double x);
+    
+    void PredictState();
+    void PredictCovariance();
 
     void PredictionStep();
     void correctionStep();
 
-    void ComputeStateGT();
-    void ComputeObsGT();
 };

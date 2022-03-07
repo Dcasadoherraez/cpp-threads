@@ -41,6 +41,12 @@ thread
 -
 vector
 -
+fstream
+-
+sstream
+-
+unordered_map
+-
 signal.h
 -
 atomic

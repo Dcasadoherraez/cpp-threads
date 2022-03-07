@@ -3,7 +3,7 @@ project(multi_threaded_ekf)
 
 SET(CMAKE_BUILD_TYPE Release)
 #  -pthread -fopenmp --> threading flags
-add_compile_options(-Wall -O3 -march=native -std=c++2a -DENABLE_INTERNAL_FMT=ON)
+add_compile_options(-Wall -O3 -march=native -std=c++2a)
 
 # Eigen
 find_package(Eigen3 REQUIRED)

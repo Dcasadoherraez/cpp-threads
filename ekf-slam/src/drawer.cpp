@@ -12,11 +12,12 @@
 
 using namespace std;
 
-Drawer::Drawer(string background_path) {
-    current_drawing = cv::imread(background_path);
+Drawer::Drawer() {
+  cv::Mat bg(1000, 1000, CV_8UC3, cv::Scalar(255, 255, 255));
+  current_drawing = bg;
 }
 
-void Drawer::DrawState(Eigen::Vector3d pos, Eigen::Matrix3d pose_cov, bool prediction) {
+void Drawer::DrawState(Eigen::Vector3d pos, Eigen::Matrix2d pose_cov, bool prediction) {
 
   cv::RotatedRect ellipse = GetErrorEllipse(pos.block(0, 0, 2, 1), pose_cov);
 
@@ -34,8 +35,8 @@ void Drawer::DrawState(Eigen::Vector3d pos, Eigen::Matrix3d pose_cov, bool predi
   center.y = pos[1];
 
   cv::Point orientation;
-  orientation.x = center.x + 100 * cos(pos[2]);
-  orientation.y = center.y + 100 * sin(pos[2]);
+  orientation.x = center.x + 50 * cos(pos[2]);
+  orientation.y = center.y + 50 * sin(pos[2]);
 
   cv::circle( current_drawing,
     center,
@@ -48,7 +49,7 @@ void Drawer::DrawState(Eigen::Vector3d pos, Eigen::Matrix3d pose_cov, bool predi
     color
     );
 
-	cv::ellipse(current_drawing, ellipse, color, 2);
+	cv::ellipse(current_drawing, ellipse, color, 1);
 
 }
 
@@ -90,7 +91,7 @@ void Drawer::DrawLandmarks(unordered_map<int, Eigen::Vector2d> positions, bool p
 
 // https://gist.github.com/eroniki/2cff517bdd3f9d8051b5
 
-cv::RotatedRect Drawer::GetErrorEllipse(Eigen::Vector2d pt, Eigen::Matrix3d cov){
+cv::RotatedRect Drawer::GetErrorEllipse(Eigen::Vector2d pt, Eigen::Matrix2d cov){
 	
   cv::Point2f mean;
   mean.x = pt[0];
@@ -99,7 +100,7 @@ cv::RotatedRect Drawer::GetErrorEllipse(Eigen::Vector2d pt, Eigen::Matrix3d cov)
   cv::Mat covmat;
   cv::eigen2cv(cov, covmat);
 
-  double chisquare_val = 1; // 2.4477
+  double chisquare_val = 0.1; // 2.4477
 	//Get the eigenvalues and eigenvectors
 	cv::Mat eigenvalues, eigenvectors;
 	cv::eigen(covmat, eigenvalues, eigenvectors);
@@ -109,17 +110,21 @@ cv::RotatedRect Drawer::GetErrorEllipse(Eigen::Vector2d pt, Eigen::Matrix3d cov)
 
 	//Shift the angle to the [0, 2pi] interval instead of [-pi, pi]
 	if(angle < 0)
-		angle += 6.28318530718;
+		angle += 2*M_PI;
 
 	//Conver to degrees instead of radians
-	angle = 180*angle/3.14159265359;
+	angle = 180*angle/M_PI;
 
 	//Calculate the size of the minor and major axes
 	double halfmajoraxissize=chisquare_val*sqrt(eigenvalues.at<double>(0));
 	double halfminoraxissize=chisquare_val*sqrt(eigenvalues.at<double>(1));
 
+  double ax = max(halfmajoraxissize, halfminoraxissize);
+  halfmajoraxissize = isnan(halfmajoraxissize) ? halfminoraxissize : halfmajoraxissize;
+  halfminoraxissize = isnan(halfminoraxissize) ? halfmajoraxissize : halfminoraxissize;
+
   // cout << covmat << endl;
-  cout << "Ellipse: " << halfmajoraxissize << "," << halfminoraxissize << endl;
+  // cout << "Ellipse: " << halfmajoraxissize << "," << halfminoraxissize << endl;
 
 	//Return the oriented ellipse
 	//The -angle is used because OpenCV defines the angle clockwise instead of anti-clockwise

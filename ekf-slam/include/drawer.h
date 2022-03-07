@@ -14,10 +14,10 @@ public:
     typedef shared_ptr<Drawer> Ptr;
     cv::Mat current_drawing;
 
-    Drawer(string background_path);
+    Drawer();
 
-    void DrawState(Eigen::Vector3d pos, Eigen::Matrix3d pose_cov, bool prediction);
+    void DrawState(Eigen::Vector3d pos, Eigen::Matrix2d pose_cov, bool prediction);
     void DrawLandmarks(unordered_map<int, Eigen::Matrix<double, 2, 1>>positions, bool prediction);
-    cv::RotatedRect GetErrorEllipse(Eigen::Vector2d pt, Eigen::Matrix3d cov);
+    cv::RotatedRect GetErrorEllipse(Eigen::Vector2d pt, Eigen::Matrix2d cov);
     void Update();
 };
