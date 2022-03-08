@@ -19,6 +19,7 @@ Use instances of a class to perform certain operations instead of calling the sa
     - Reference to functor object (if I need to use member variables later)
 - Rest of parameters are passed to the operator() function
 - Result can be stored in member variable
+
 ```
 MyFunctorClass *functor = new MyFunctorClass();
 std::thread(std::ref(*functor), arg1, arg2 ...)
@@ -42,6 +43,7 @@ std::vector<int> list{1, 2, 3, 4}
 int total = 0;
 std::for_each(begin(list), end(list), [&total](int x) { total += x; });
 Easy way to perform computations in little space
+
 ```
 std::thread([i, &partial_sums, step] {
       for (uint64_t j = i * step; j < (i + 1) * step; j++) {
