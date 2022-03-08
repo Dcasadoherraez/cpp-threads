@@ -20,7 +20,7 @@ Use instances of a class to perform certain operations instead of calling the sa
 - Rest of parameters are passed to the operator() function
 - Result can be stored in member variable
 
-```
+```cpp
 MyFunctorClass *functor = new MyFunctorClass();
 std::thread(std::ref(*functor), arg1, arg2 ...)
 
@@ -38,13 +38,16 @@ class AccumulateFunctor {
 };
 ```
 ## Using lambda functions
+Easy way to perform computations in little space
+
+```cpp
 [capture](parameters) -> return_type { function_body }
 std::vector<int> list{1, 2, 3, 4}
 int total = 0;
 std::for_each(begin(list), end(list), [&total](int x) { total += x; });
-Easy way to perform computations in little space
-
 ```
+
+```cpp
 std::thread([i, &partial_sums, step] {
       for (uint64_t j = i * step; j < (i + 1) * step; j++) {
         partial_sums[i] += j;
@@ -62,16 +65,19 @@ thread t = async(GetRangeSum, 0, 100/2);
 return_value = t.get();
 
 The return value is of type future = The value will come in the future (after calling t.get())
-```
+
+```cpp
 std::vector<std::future<uint64_t>> tasks;
 
 for (uint64_t i = 0; i < number_of_threads; i++) {
 tasks.push_back(std::async(GetRangeSum, i * step, (i + 1) * step));
 }
 ```
+
 # Mutex and conditional variables
 Race conditions: When various threads want to write into the same value
-```
+
+```cpp
 auto t1 = std::thread([]() { g_x = 1; });
 auto t2 = std::thread([]() { g_x = 2; });
 ```
@@ -99,7 +105,7 @@ The other one will wait.
 - Lock & unlock should match
 - If EXCEPTION --> mutex stays locked!! Deadlock
 
-```
+```cpp
 std::mutex m;
 unsigned long ct;
 
@@ -111,12 +117,13 @@ void Increment() {
     }
 }
 ```
+
 ### Lock Guard
 - To avoid deadlock: (Resource Acquisition is Initialization RAII)
 - Exits as soon as it goes out of scope (finishes, excption ... ).
 - Preferred over simple mutex.
 
-```
+```cpp
 void Increment() {
     for (int i = 0; i < 100; i++) {
         std::lock_guard<std::mutex> guard(m);
@@ -124,12 +131,13 @@ void Increment() {
     }
 }
 ```
+
 ### Unique Lock (Lock Guard + Lock/Unlock)
 - Automatically locks once constructed
 - Unlocks when out of scope
 - Optionally lock/unlock
 
-```
+```cpp
 void Increment() {
     for (int i = 0; i < 100; i++) {
         std::unique_lock<std::mutex> ul(m);
@@ -140,13 +148,14 @@ void Increment() {
     }
 }
 ```
+
 ### Shared Lock
 - Have multiple readers 
 - Mutex must be of type std::shared_mutex
 - Only a single thread in the writter
 - If no writer has locked the shared lock, multiple threads can read at the same time
 
-```
+```cpp
 std::shared_mutex m;
 unsigned long ct;
 
@@ -167,7 +176,7 @@ std::cout << "Count: " << ct << endl;
 ### Multiple locks
 Can cause deadlock if not addressed properly
 
-```
+```cpp
 std::mutex m1, m2;
 unsigned long ct;
 
@@ -202,7 +211,7 @@ Producer/Consumer pattern. One thread produces some data, another thread consume
 - Consumer checks for ready flag, consumes it when available (monitor + sample).
 - Not efficient as one thread is kept busy by locking and unlocking to check for data
 
-```
+```cpp
 bool ready = false;
 int data = 0;
 
@@ -268,7 +277,7 @@ Summary: Protect conditional variable using a mutex + Always use predicate
 
 Lock() and wait() are blocking actions.
 
-```
+```cpp
 std::mutex g_mutex;
 std::condition_variable g_cv;
 bool g_ready = false;
