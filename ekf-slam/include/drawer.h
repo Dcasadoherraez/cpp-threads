@@ -15,7 +15,7 @@ public:
     cv::Mat current_drawing;
 
     Drawer();
-
+    void Clear();
     void DrawState(Eigen::Vector3d pos, Eigen::Matrix2d pose_cov, bool prediction);
     void DrawLandmarks(unordered_map<int, Eigen::Matrix<double, 2, 1>>positions, bool prediction);
     cv::RotatedRect GetErrorEllipse(Eigen::Vector2d pt, Eigen::Matrix2d cov);

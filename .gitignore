@@ -31,4 +31,5 @@
 *.out
 *.app
 
-ekf-slam/build/*
+**/.vscode
+**/build

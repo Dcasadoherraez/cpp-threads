@@ -13,6 +13,10 @@
 using namespace std;
 
 Drawer::Drawer() {
+  Clear();
+}
+
+void Drawer::Clear() {
   cv::Mat bg(1000, 1000, CV_8UC3, cv::Scalar(255, 255, 255));
   current_drawing = bg;
 }

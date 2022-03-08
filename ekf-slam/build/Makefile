@@ -177,6 +177,33 @@ src/ekf.cpp.s:
 	$(MAKE) -f CMakeFiles/multi_threaded_ekf_node.dir/build.make CMakeFiles/multi_threaded_ekf_node.dir/src/ekf.cpp.s
 .PHONY : src/ekf.cpp.s
 
+src/file_reader.o: src/file_reader.cpp.o
+
+.PHONY : src/file_reader.o
+
+# target to build an object file
+src/file_reader.cpp.o:
+	$(MAKE) -f CMakeFiles/multi_threaded_ekf_node.dir/build.make CMakeFiles/multi_threaded_ekf_node.dir/src/file_reader.cpp.o
+.PHONY : src/file_reader.cpp.o
+
+src/file_reader.i: src/file_reader.cpp.i
+
+.PHONY : src/file_reader.i
+
+# target to preprocess a source file
+src/file_reader.cpp.i:
+	$(MAKE) -f CMakeFiles/multi_threaded_ekf_node.dir/build.make CMakeFiles/multi_threaded_ekf_node.dir/src/file_reader.cpp.i
+.PHONY : src/file_reader.cpp.i
+
+src/file_reader.s: src/file_reader.cpp.s
+
+.PHONY : src/file_reader.s
+
+# target to generate assembly for a file
+src/file_reader.cpp.s:
+	$(MAKE) -f CMakeFiles/multi_threaded_ekf_node.dir/build.make CMakeFiles/multi_threaded_ekf_node.dir/src/file_reader.cpp.s
+.PHONY : src/file_reader.cpp.s
+
 src/main.o: src/main.cpp.o
 
 .PHONY : src/main.o
@@ -219,6 +246,9 @@ help:
 	@echo "... src/ekf.o"
 	@echo "... src/ekf.i"
 	@echo "... src/ekf.s"
+	@echo "... src/file_reader.o"
+	@echo "... src/file_reader.i"
+	@echo "... src/file_reader.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"

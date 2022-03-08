@@ -28,6 +28,7 @@ add_executable(${PROJECT_NAME}_node
     src/main.cpp
     src/ekf.cpp
     src/drawer.cpp
+    src/file_reader.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}_node 
