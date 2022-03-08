@@ -157,27 +157,13 @@ int main(int argc, char **argv) {
 
     cout << "Kalman Filter" << endl;
 
-    Eigen::Matrix2d Q;
-    Eigen::Matrix3d R;
-    double sigma_r, sigma_phi, motion_noise;
+    double sensor_noise, motion_noise;
 
-    sigma_r =   1 / scale_square;
-    sigma_phi = 1;
+    sensor_noise = 0.01; // * scale_square;
+    motion_noise = 0.01; // * scale_square;
 
-    motion_noise = 0.001 / scale_square;
-
-    Q << sigma_r,    0, 
-            0, sigma_phi;
-
-    R << motion_noise, 0  ,    0,
-           0   , motion_noise,    0,
-           0   , 0  , motion_noise/10;
-
-    // Q << 0, 0, 0, 0;
-    // R << 0, 0, 0, 0, 0, 0, 0, 0, 0;
-           
     double dt = 1;
-    EKF::Ptr ekf(new EKF(Q, R, dt)); 
+    EKF::Ptr ekf(new EKF(scale, sensor_noise, motion_noise, dt)); 
     Drawer::Ptr drawer(new Drawer());
 
     // Read data.csv
@@ -192,7 +178,7 @@ int main(int argc, char **argv) {
  
     // SLAM loop
     cout << "Going over " << sensor_data.size() << " states" << endl;
-    while (data_ct < sensor_data.size() - 10) // 
+    while (data_ct < sensor_data.size() - 1) 
     {
         // ekf->u_t = getUserInput();
         // ekf->z_t = getUserObservations(ekf->N);
@@ -211,21 +197,21 @@ int main(int argc, char **argv) {
         // drawer->DrawLandmarks(ekf->map_gt, false);
 
         // Correct
-        ekf->correctionStep();
+        ekf->CorrectionStep();
         // cout << "Predicted pose (correction step): \n" << ekf->x_t << endl;
         // cout << "Predicted sigma (correction step): \n" << ekf->sigma_t << endl;
 
         drawer->DrawState(ekf->x_t.block(0, 0, 3, 1), ekf->sigma_t.block(0, 0, 2, 2), true);
         drawer->DrawLandmarks(ekf->map_t, true);
 
-        // cout << "Cov: \n" << ekf->sigma_t << endl;
+        cout << "Cov: \n" << ekf->sigma_t.block(0, 0, 3, 3) << endl;
         if( quit.load() ) break;    // exit normally after SIGINT
 
 
-  
+        cv::imshow("image", drawer->current_drawing);
+        cv::waitKey(1);
     }
     
-        cv::imshow("image", drawer->current_drawing);
-        cv::waitKey(0);
+  
     return 0;
 }

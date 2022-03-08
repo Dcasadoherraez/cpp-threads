@@ -13,26 +13,23 @@ public:
     static const int N = 10; // num of landmarks
     static const int dim = 2 * N + 3;
     double delta_t;
+    int scale;
 
-    Eigen::Matrix2d Q;
-    Eigen::Matrix3d R_t;
+    double sensor_noise;
+    double motion_noise;
 
     // current input
     Eigen::Vector3d u_t;
     unordered_map<int, Eigen::Vector2d> z_t;
 
-    Eigen::Matrix<double, dim, 1> x_t, x_t_pred, x_gt;
+    Eigen::Matrix<double, dim, 1> x_t, x_t_pred;
     Eigen::Matrix<double, dim, dim> sigma_t, sigma_t_pred;
 
-    Eigen::Matrix<double, dim, dim> G_t;
-    Eigen::Matrix<double, 2, dim> H_t;
-
-    Eigen::Matrix<double, dim, 2> K_t;
 
     // landmark vector {id, [x, y]}
     unordered_map<int, Eigen::Vector2d> map_t, map_gt;
 
-    EKF(Eigen::Matrix2d sensor_uncertainty, Eigen::Matrix3d motion_uncertainty, double dt);
+    EKF(int scale, double sensor_uncertainty, double motion_uncertainty, double dt);
 
     ~EKF() {}
     
@@ -42,6 +39,6 @@ public:
     void PredictCovariance();
 
     void PredictionStep();
-    void correctionStep();
+    void CorrectionStep();
 
 };
