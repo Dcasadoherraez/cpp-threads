@@ -19,6 +19,8 @@ Use instances of a class to perform certain operations instead of calling the sa
     - Reference to functor object (if I need to use member variables later)
 - Rest of parameters are passed to the operator() function
 - Result can be stored in member variable
+
+```
 MyFunctorClass *functor = new MyFunctorClass();
 std::thread(std::ref(*functor), arg1, arg2 ...)
 
@@ -34,15 +36,15 @@ class AccumulateFunctor {
   // ~AccumulateFunctor(){std::cout << "AccumulateFunctor Destructor." << std::endl;}
   uint64_t _sum;
 };
-
+```
 ## Using lambda functions
 [capture](parameters) -> return_type { function_body }
 std::vector<int> list{1, 2, 3, 4}
 int total = 0;
 std::for_each(begin(list), end(list), [&total](int x) { total += x; });
+Easy way to perform computations in little space
 
 ```
-Easy way to perform computations in little space
 std::thread([i, &partial_sums, step] {
       for (uint64_t j = i * step; j < (i + 1) * step; j++) {
         partial_sums[i] += j;
@@ -60,17 +62,19 @@ thread t = async(GetRangeSum, 0, 100/2);
 return_value = t.get();
 
 The return value is of type future = The value will come in the future (after calling t.get())
-
+```
 std::vector<std::future<uint64_t>> tasks;
 
 for (uint64_t i = 0; i < number_of_threads; i++) {
 tasks.push_back(std::async(GetRangeSum, i * step, (i + 1) * step));
 }
-
+```
 # Mutex and conditional variables
 Race conditions: When various threads want to write into the same value
+```
 auto t1 = std::thread([]() { g_x = 1; });
 auto t2 = std::thread([]() { g_x = 2; });
+```
 
 - Non atomic operations can lead to non-deterministic behavior:
     - Increment: Read - Increment - Write 
@@ -95,6 +99,7 @@ The other one will wait.
 - Lock & unlock should match
 - If EXCEPTION --> mutex stays locked!! Deadlock
 
+```
 std::mutex m;
 unsigned long ct;
 
@@ -105,24 +110,26 @@ void Increment() {
         m.unlock();
     }
 }
-
+```
 ### Lock Guard
 - To avoid deadlock: (Resource Acquisition is Initialization RAII)
 - Exits as soon as it goes out of scope (finishes, excption ... ).
 - Preferred over simple mutex.
 
+```
 void Increment() {
     for (int i = 0; i < 100; i++) {
         std::lock_guard<std::mutex> guard(m);
         ct++;
     }
 }
-
+```
 ### Unique Lock (Lock Guard + Lock/Unlock)
 - Automatically locks once constructed
 - Unlocks when out of scope
 - Optionally lock/unlock
 
+```
 void Increment() {
     for (int i = 0; i < 100; i++) {
         std::unique_lock<std::mutex> ul(m);
@@ -132,13 +139,14 @@ void Increment() {
         ul.lock();
     }
 }
-
+```
 ### Shared Lock
 - Have multiple readers 
 - Mutex must be of type std::shared_mutex
 - Only a single thread in the writter
 - If no writer has locked the shared lock, multiple threads can read at the same time
 
+```
 std::shared_mutex m;
 unsigned long ct;
 
@@ -150,12 +158,16 @@ void Increment() {
     }
 }
 
+
 // Shared lock for all the readers
 std::shared_lock<std::shared_mutex> sl(m);
 std::cout << "Count: " << ct << endl;
+```
 
 ### Multiple locks
 Can cause deadlock if not addressed properly
+
+```
 std::mutex m1, m2;
 unsigned long ct;
 
@@ -174,6 +186,7 @@ void Increment_bad2() {
         ct++;
     }    
 }
+```
 
 Solution: Lock all or none --> std::scoped_lock(m1, m2)
 - Locks all or none
@@ -189,6 +202,7 @@ Producer/Consumer pattern. One thread produces some data, another thread consume
 - Consumer checks for ready flag, consumes it when available (monitor + sample).
 - Not efficient as one thread is kept busy by locking and unlocking to check for data
 
+```
 bool ready = false;
 int data = 0;
 
@@ -213,6 +227,7 @@ void producer() {
     ready = true;
     ul.unlock();
 }
+```
 
 ### Conditional variable:
 Notification channel between producer and consumer. There's a conditional variable in the critical section that acts as a notifier.
@@ -253,6 +268,7 @@ Summary: Protect conditional variable using a mutex + Always use predicate
 
 Lock() and wait() are blocking actions.
 
+```
 std::mutex g_mutex;
 std::condition_variable g_cv;
 bool g_ready = false;
@@ -293,8 +309,6 @@ void Producer() {
     g_cv.wait(ul, []() { return g_ready == false; });
   }
 }
+```
 
 
-
-
-## Atomic
