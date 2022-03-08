@@ -2,13 +2,31 @@
 #include <Eigen/Geometry>
 #include <memory>
 #include <unordered_map>
+#include <thread>
+
+#include <stdlib.h>
+#include <iostream>
+#include <vector>
+#include <unistd.h>
+
+#include <mutex>
+#include <shared_mutex>
+
+#include <atomic>
+#include <signal.h>
+
+#include "drawer.h"
+#include "file_reader.h"
 
 using namespace std;
 
-
-class EKF {
+class EKF
+{
 public:
     typedef shared_ptr<EKF> Ptr;
+    
+    Drawer::Ptr drawer;
+    FileReader::Ptr filereader;
 
     static const int N = 35; // num of landmarks
     static const int dim = 2 * N + 3;
@@ -25,22 +43,25 @@ public:
     Eigen::Matrix<double, dim, 1> x_t, x_t_pred;
     Eigen::Matrix<double, dim, dim> sigma_t, sigma_t_pred;
 
-
     // landmark vector {id, [x, y]}
     unordered_map<int, Eigen::Vector2d> map_t, map_gt;
 
     EKF(int scale, double sensor_uncertainty, double motion_uncertainty, double dt);
 
     ~EKF() {}
-    
+
+    void MainLoop(string data, string world, bool parallel);
+
     double ConstrainAngle(double x);
-    
+
+    // EKF-SLAM Steps
+    void PredictionStep(bool is_parallel);
+    void CorrectStep(bool is_parallel);
+
+    // Sequential processing
     void PredictState();
     void PredictCovariance();
     void CorrectionStep();
-
-    void PredictionStep(bool is_parallel);
-    void CorrectStep(bool is_parallel);
 
     // Parallel processing
     void ParallelPrint();
