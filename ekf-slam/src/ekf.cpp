@@ -2,7 +2,11 @@
 #include <Eigen/Geometry>
 #include <stdlib.h>
 #include <iostream>
-#include <ekf.h>
+#include <thread>
+#include <vector>
+#include <unistd.h>
+
+#include "ekf.h"
 
 using namespace std;
 
@@ -37,6 +41,14 @@ double EKF::ConstrainAngle(double angle){
   return angle;
 }
 
+void EKF::PredictionStep(bool is_parallel) {
+    PredictState();
+
+    if (is_parallel)
+        PredictCovarianceParallel();
+    else
+        PredictCovariance();
+}
 
 void EKF::PredictState() {
     Eigen::Vector3d update;
@@ -50,6 +62,48 @@ void EKF::PredictState() {
 
 }
 
+void EKF::GetTopLeft(Eigen::Matrix3d &G_t_x, Eigen::Matrix3d &R_t) {
+    sigma_t_pred.block(0, 0, 3, 3) = G_t_x * sigma_t.block(0, 0, 3, 3) * G_t_x.transpose() + R_t;
+
+}
+
+void EKF::GetTopRight(Eigen::Matrix3d &G_t_x) {
+    sigma_t_pred.block(0, 3, 3, 2 * N) = G_t_x * sigma_t.block(0, 3, 3, 2 * N);
+
+}
+void EKF::GetBottomLeft(Eigen::Matrix3d &G_t_x) {
+    sigma_t_pred.block(3, 0, 2 * N, 3) = (G_t_x * sigma_t.block(0, 3, 3, 2 * N)).transpose();
+
+}
+
+void EKF::GetBottomRight(Eigen::Matrix3d &G_t_x) {
+    sigma_t_pred.block(3, 3, 2 * N, 2 * N) = sigma_t.block(3, 3, 2 * N, 2 * N);
+}
+
+void EKF::PredictCovarianceParallel() {
+    Eigen::Matrix3d G_t_x;
+
+    G_t_x << 1, 0, -u_t(0) * sin(x_t(2) + u_t(1) * delta_t),
+             0, 1,  u_t(0) * cos(x_t(2) + u_t(1) * delta_t),
+             0, 0,  1;
+
+    Eigen::Matrix3d R_t; 
+    R_t << motion_noise / (scale),          0  ,               0,
+                      0, motion_noise / (scale),               0,
+                      0,          0  , motion_noise/(100 * scale * scale);
+
+    vector<thread*> threads;
+
+    threads.push_back(new thread(&EKF::GetTopLeft, this, ref(G_t_x), ref(R_t)));
+    threads.push_back(new thread(&EKF::GetTopRight, this, ref(G_t_x)));
+    threads.push_back(new thread(&EKF::GetBottomLeft, this, ref(G_t_x)));
+    threads.push_back(new thread(&EKF::GetBottomRight, this, ref(G_t_x)));
+
+    for (thread* t : threads) {
+        t->join();
+    }
+
+}
 
 void EKF::PredictCovariance() {
     Eigen::Matrix3d G_t_x;
@@ -64,17 +118,101 @@ void EKF::PredictCovariance() {
                       0,          0  , motion_noise/(100 * scale * scale);
 
     // top left block
-    sigma_t_pred.block(0, 0, 3, 3) = G_t_x * sigma_t.block(0, 0, 3, 3) * G_t_x.transpose() + R_t;
+    GetTopLeft(G_t_x, R_t);
 
     // top right block
-    sigma_t_pred.block(0, 3, 3, 2 * N) = G_t_x * sigma_t.block(0, 3, 3, 2 * N);
+    GetTopRight(G_t_x);
 
     // bottom left block
-    sigma_t_pred.block(3, 0, 2 * N, 3) = (G_t_x * sigma_t.block(0, 3, 3, 2 * N)).transpose();
+    GetBottomLeft(G_t_x);
 
     // bottom right block
-    sigma_t_pred.block(3, 3, 2 * N, 2 * N) = sigma_t.block(3, 3, 2 * N, 2 * N);
+    GetBottomRight(G_t_x);
 
+}
+
+void EKF::ComputeObservationH(int ct, int &id, Eigen::Vector2d &observation, int &m, Eigen::MatrixXd &H_t, Eigen::VectorXd &Z_diff) {
+
+    usleep(1000);
+    // observation has the form of range sensor measurement: zt(r, phi)
+    double r = observation(0);
+    double phi = observation(1);
+
+    int landmark_idx = 3 + id*2;
+
+    if (!map_t.count(id)) {
+
+        // first landmark location estimate
+        x_t_pred(landmark_idx) = x_t_pred(0) + r * cos(phi + x_t_pred(2));
+        x_t_pred(landmark_idx + 1) = x_t_pred(1) + r * sin(phi + x_t_pred(2));
+
+        map_t[id] = x_t_pred.block(landmark_idx, 0, 2, 1);
+    }
+
+    // cout << "Predicted state: " << x_t_pred.block(0, 0, 2, 1).transpose() << endl;
+    // cout << "Predicted landmark " << landmark_idx << ": " << x_t_pred(landmark_idx) << "," << x_t_pred(landmark_idx + 1) << endl;
+    // cout << "Measurement: " << observation.transpose() << endl;
+
+    // delta = landmark pose - robot pose (same as relative measurement)
+    Eigen::Vector2d delta = x_t_pred.block(landmark_idx, 0, 2, 1) - x_t_pred.block(0, 0, 2, 1);
+
+    double q = delta.transpose() * delta;
+    double q_sqrt = pow(q, 0.5);
+
+    Eigen::Vector2d z_pred;
+    z_pred << q_sqrt, 
+              ConstrainAngle(atan2(delta(1), delta(0)) - x_t_pred(2));
+
+    Z_diff(ct * 2) = r - z_pred(0);
+    Z_diff(ct * 2 + 1) = ConstrainAngle(phi - z_pred(1));
+
+    // Eigen::Matrix<double, 5, dim> F = Eigen::Matrix<double, 5, dim>::Zero();
+    // F.block(0, 0, 3, 3) = Eigen::Matrix3d::Identity();
+    // F.block(3, 3 + 2*id, 2, 2) = Eigen::Matrix2d::Identity();
+
+    Eigen::Matrix<double, 2, dim> H_low = Eigen::Matrix<double, 2, dim>::Zero();
+
+    H_low.block(0, 0, 2, 3) <<  - q_sqrt * delta(0), - q_sqrt * delta(1),  0,
+                                            delta(1),           - delta(0), -q;
+
+    H_low.block(0, landmark_idx, 2, 2) << q_sqrt * delta(0), q_sqrt * delta(1),
+                                                    -delta(1),          delta(0);
+
+    H_low *= 1 / q;
+
+    H_t.block(ct * 2, 0, 2, dim) = H_low * 1/q;
+
+}
+
+
+void EKF::CorrectStep(bool is_parallel) {
+    if (is_parallel)
+        CorrectionStepParallel();
+    else
+        CorrectionStep();
+}
+
+void EKF::CorrectionStepParallel() {
+
+    int m = 2 * z_t.size();
+    Eigen::MatrixXd H_t = Eigen::MatrixXd::Zero(m,dim);
+    Eigen::VectorXd Z_diff = Eigen::VectorXd::Zero(m);
+
+    vector<thread*> threads;
+    int ct = 0;
+    
+    for (auto obs : z_t) {
+        int id = obs.first;
+        Eigen::Vector2d observation = obs.second;
+        threads.push_back(new thread(&EKF::ComputeObservationH, this, ct, ref(id), ref(observation), ref(m), ref(H_t), ref(Z_diff)));
+        ct++;
+    }
+
+    for (thread* t : threads) {
+        t->join();
+    }
+
+    PerformUpdate(m, H_t, Z_diff);
 }
 
 void EKF::CorrectionStep() {
@@ -88,55 +226,14 @@ void EKF::CorrectionStep() {
     for (auto obs : z_t) {
         int id = obs.first;
         Eigen::Vector2d observation = obs.second;
-        // observation has the form of range sensor measurement: zt(r, phi)
-        double r = observation(0);
-        double phi = observation(1);
-
-        int landmark_idx = 3 + id*2;
-
-        if (!map_t.count(id)) {
-
-            // first landmark location estimate
-            x_t_pred(landmark_idx) = x_t_pred(0) + r * cos(phi + x_t_pred(2));
-            x_t_pred(landmark_idx + 1) = x_t_pred(1) + r * sin(phi + x_t_pred(2));
-
-            map_t[id] = x_t_pred.block(landmark_idx, 0, 2, 1);
-        }
-
-        // cout << "Predicted state: " << x_t_pred.block(0, 0, 2, 1).transpose() << endl;
-        // cout << "Predicted landmark " << landmark_idx << ": " << x_t_pred(landmark_idx) << "," << x_t_pred(landmark_idx + 1) << endl;
-        // cout << "Measurement: " << observation.transpose() << endl;
-
-        // delta = landmark pose - robot pose (same as relative measurement)
-        Eigen::Vector2d delta = x_t_pred.block(landmark_idx, 0, 2, 1) - x_t_pred.block(0, 0, 2, 1);
-
-        double q = delta.transpose() * delta;
-        double q_sqrt = pow(q, 0.5);
-
-        Eigen::Vector2d z_pred;
-        z_pred << q_sqrt, 
-                  ConstrainAngle(atan2(delta(1), delta(0)) - x_t_pred(2));
-
-        Z_diff(ct * 2) = r - z_pred(0);
-        Z_diff(ct * 2 + 1) = ConstrainAngle(phi - z_pred(1));
-
-        // Eigen::Matrix<double, 5, dim> F = Eigen::Matrix<double, 5, dim>::Zero();
-        // F.block(0, 0, 3, 3) = Eigen::Matrix3d::Identity();
-        // F.block(3, 3 + 2*id, 2, 2) = Eigen::Matrix2d::Identity();
-
-        Eigen::Matrix<double, 2, dim> H_low = Eigen::Matrix<double, 2, dim>::Zero();
-
-        H_low.block(0, 0, 2, 3) <<  - q_sqrt * delta(0), - q_sqrt * delta(1),  0,
-                                               delta(1),           - delta(0), -q;
-
-        H_low.block(0, landmark_idx, 2, 2) << q_sqrt * delta(0), q_sqrt * delta(1),
-                                                      -delta(1),          delta(0);
-
-        H_t.block(ct * 2, 0, 2, dim) = H_low * 1/q;
-        // cout << "q: " << q << endl;
+        ComputeObservationH(ct, id, observation, m, H_t, Z_diff);
         ct++;
-
     }
+
+    PerformUpdate(m, H_t, Z_diff);
+}
+
+void EKF::PerformUpdate(int m, Eigen::MatrixXd &H_t, Eigen::VectorXd &Z_diff) {
     // cout << H_t << endl;
     Eigen::MatrixXd Q_t = Eigen::MatrixXd::Identity(m, m) * sensor_noise ;
 
@@ -151,10 +248,4 @@ void EKF::CorrectionStep() {
     // cout << "Z_diff: " << Z_diff << endl;
     x_t = x_t_pred;
     sigma_t = sigma_t_pred;
-}
-
-
-void EKF::PredictionStep() {
-    PredictState();
-    PredictCovariance();
 }

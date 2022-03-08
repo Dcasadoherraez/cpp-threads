@@ -104,7 +104,7 @@ cv::RotatedRect Drawer::GetErrorEllipse(Eigen::Vector2d pt, Eigen::Matrix2d cov)
   cv::Mat covmat;
   cv::eigen2cv(cov, covmat);
 
-  double chisquare_val = 1000; // 2.4477
+  double chisquare_val = 100; // 2.4477
 	//Get the eigenvalues and eigenvectors
 	cv::Mat eigenvalues, eigenvectors;
 	cv::eigen(covmat, eigenvalues, eigenvectors);

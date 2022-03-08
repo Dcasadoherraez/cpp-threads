@@ -42,6 +42,18 @@ void printLandmarks(unordered_map<int, Eigen::Vector2d> map_gt) {
 
 int main(int argc, char **argv) {
 
+    bool parallel = false;
+    if (*argv[1] == '1') {
+        parallel = true;
+        cout << "Running in parallel" << endl;
+    } else if (*argv[1] == '0') {
+        cout << "Running in sequential" << endl;
+        parallel = false;
+    } else {
+        cout << "Invalid arg" << endl;
+        return -1;
+    }
+
     struct sigaction sa;
     memset( &sa, 0, sizeof(sa) );
     sa.sa_handler = signalHandler;
@@ -61,7 +73,7 @@ int main(int argc, char **argv) {
     FileReader::Ptr filereader(new FileReader(scale));
 
     // Read data.csv
-    string data("../data.csv");
+    string data("../data_fake.csv");
     string world("../world.csv");
     unordered_map<int, vector<string>> sensor_data = filereader->ReadFile(data);
     unordered_map<int, vector<string>> map_data = filereader->ReadFile(world);
@@ -79,12 +91,16 @@ int main(int argc, char **argv) {
 
         ekf->u_t = filereader->GetInput(data_ct, sensor_data);
         ekf->z_t = filereader->GetObservations(data_ct, sensor_data);
-
+    
         // printState(ekf->x_gt);
         // printLandmarks(ekf->map_gt);
 
         // Predict 
-        ekf->PredictionStep();
+        auto startP = chrono::system_clock::now();
+        ekf->PredictionStep(parallel);
+        auto endP = chrono::system_clock::now();
+        chrono::duration<float, milli> durationP = endP - startP;
+        cout << "Pred. t: " << durationP.count();
         // cout << "Predicted pose (prediction step): \n" << ekf->x_t_pred << endl;
         // cout << "Predicted sigma (prediction step): \n" << ekf->sigma_t_pred << endl;
 
@@ -92,7 +108,12 @@ int main(int argc, char **argv) {
         // drawer->DrawLandmarks(ekf->map_gt, false);
 
         // Correct
-        ekf->CorrectionStep();
+        auto startC = chrono::system_clock::now();
+        ekf->CorrectStep(parallel);
+        auto endC = chrono::system_clock::now();
+        chrono::duration<float, milli> durationC = endC - startC;
+        cout << " Corr. t: " << durationC.count() << endl;
+
         // cout << "Predicted pose (correction step): \n" << ekf->x_t << endl;
         // cout << "Predicted sigma (correction step): \n" << ekf->sigma_t << endl;
 
@@ -101,8 +122,9 @@ int main(int argc, char **argv) {
         drawer->DrawLandmarks(ekf->map_t, true); // draw estimation
         drawer->DrawLandmarks(lmMap, false); // draw map lm
 
-        cout << "Cov: \n" << ekf->sigma_t.block(0, 0, 3, 3) << endl;
+        // cout << "Cov: \n" << ekf->sigma_t.block(0, 0, 3, 3) << endl;
         if( quit.load() ) break;    // exit normally after SIGINT
+
 
 
         cv::imshow("image", drawer->current_drawing);

@@ -10,7 +10,7 @@ class EKF {
 public:
     typedef shared_ptr<EKF> Ptr;
 
-    static const int N = 10; // num of landmarks
+    static const int N = 35; // num of landmarks
     static const int dim = 2 * N + 3;
     double delta_t;
     int scale;
@@ -37,8 +37,20 @@ public:
     
     void PredictState();
     void PredictCovariance();
-
-    void PredictionStep();
     void CorrectionStep();
 
+    void PredictionStep(bool is_parallel);
+    void CorrectStep(bool is_parallel);
+
+    // Parallel processing
+    void ParallelPrint();
+    void PredictCovarianceParallel();
+    void GetTopLeft(Eigen::Matrix3d &G_t_x, Eigen::Matrix3d &R_t);
+    void GetTopRight(Eigen::Matrix3d &G_t_x);
+    void GetBottomLeft(Eigen::Matrix3d &G_t_x);
+    void GetBottomRight(Eigen::Matrix3d &G_t_x);
+
+    void CorrectionStepParallel();
+    void ComputeObservationH(int ct, int &id, Eigen::Vector2d &observation, int &m, Eigen::MatrixXd &H_t, Eigen::VectorXd &Z_diff);
+    void PerformUpdate(int m, Eigen::MatrixXd &H_t, Eigen::VectorXd &Z_diff);
 };
