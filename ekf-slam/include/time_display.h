@@ -11,21 +11,24 @@
 
 using namespace std;
 
-class TimeDisplay {
+class TimeDisplay
+{
 public:
-
     typedef shared_ptr<TimeDisplay> Ptr;
     mutex data_mutex;
 
-    TimeDisplay() {
+    TimeDisplay()
+    {
         stop = false;
     }
 
     Drawer::Ptr drawer;
     bool stop;
 
-    void DisplayTime() {
-        while(!stop) {
+    void DisplayTime()
+    {
+        while (!stop)
+        {
             auto t = std::time(nullptr);
             auto tm = *std::localtime(&t);
 
@@ -42,7 +45,6 @@ public:
         std::unique_lock<std::mutex> lck(data_mutex);
         stop = ss;
     }
-
 };
 
 #endif

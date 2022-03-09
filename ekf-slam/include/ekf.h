@@ -1,3 +1,7 @@
+#pragma once
+#ifndef EKF_SLAM_H
+#define EKF_SLAM_H
+
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <memory>
@@ -25,10 +29,12 @@ class EKF
 public:
     typedef shared_ptr<EKF> Ptr;
     
+    mutex data_mutex;
+
     Drawer::Ptr drawer;
     FileReader::Ptr filereader;
 
-    static const int N = 35; // num of landmarks
+    static const int N = 100; // num of landmarks
     static const int dim = 2 * N + 3;
     double delta_t;
     int scale;
@@ -72,6 +78,28 @@ public:
     void GetBottomRight(Eigen::Matrix3d &G_t_x);
 
     void CorrectionStepParallel();
-    void ComputeObservationH(int ct, int &id, Eigen::Vector2d &observation, int &m, Eigen::MatrixXd &H_t, Eigen::VectorXd &Z_diff);
+    void ComputeObservationH(int ct, int id, Eigen::Vector2d observation, int &m, Eigen::MatrixXd &H_t, Eigen::VectorXd &Z_diff);
     void PerformUpdate(int m, Eigen::MatrixXd &H_t, Eigen::VectorXd &Z_diff);
+
+    void InitMap() {
+        unique_lock<std::mutex> lck(data_mutex);
+        map_t = {};
+    }
+    void SetMap(int id, Eigen::Vector2d lm_pos) {
+        unique_lock<std::mutex> lck(data_mutex);
+        map_t[id] = lm_pos;
+    }
+
+    std::unordered_map<int, Eigen::Vector2d> GetMap() {
+        unique_lock<std::mutex> lck(data_mutex);
+        return map_t;
+    }
+
+
+    bool IsInMap(int id) {
+        unique_lock<std::mutex> lck(data_mutex);
+        return map_t.count(id);
+    }
 };
+
+#endif

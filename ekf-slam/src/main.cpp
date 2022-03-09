@@ -49,7 +49,6 @@ int main(int argc, char **argv) {
     }
 
     cout << "Kalman Filter" << endl;
-
     double sensor_noise, motion_noise;
 
     sensor_noise = 0.01; // * scale_square;

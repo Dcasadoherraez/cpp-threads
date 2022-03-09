@@ -59,8 +59,8 @@ void EKF::PredictState()
     Eigen::Vector3d update;
 
     update << u_t(0) * cos(x_t(2) + u_t(1) * delta_t),
-        u_t(0) * sin(x_t(2) + u_t(1) * delta_t),
-        ConstrainAngle(delta_t * (u_t(1) + u_t(2)));
+              u_t(0) * sin(x_t(2) + u_t(1) * delta_t),
+              ConstrainAngle(delta_t * (u_t(1) + u_t(2)));
 
     x_t_pred.block(0, 0, 3, 1) += update;
     x_t_pred(2) = ConstrainAngle(x_t_pred(2));
@@ -137,24 +137,23 @@ void EKF::PredictCovariance()
     GetBottomRight(G_t_x);
 }
 
-void EKF::ComputeObservationH(int ct, int &id, Eigen::Vector2d &observation, int &m, Eigen::MatrixXd &H_t, Eigen::VectorXd &Z_diff)
+void EKF::ComputeObservationH(int ct, int id, Eigen::Vector2d observation, int &m, Eigen::MatrixXd &H_t, Eigen::VectorXd &Z_diff)
 {
+    this_thread::sleep_for(chrono::milliseconds(10));
 
-    usleep(1000);
     // observation has the form of range sensor measurement: zt(r, phi)
     double r = observation(0);
     double phi = observation(1);
 
     int landmark_idx = 3 + id * 2;
 
-    if (!map_t.count(id))
+    if (!IsInMap(id))
     {
-
         // first landmark location estimate
         x_t_pred(landmark_idx) = x_t_pred(0) + r * cos(phi + x_t_pred(2));
         x_t_pred(landmark_idx + 1) = x_t_pred(1) + r * sin(phi + x_t_pred(2));
 
-        map_t[id] = x_t_pred.block(landmark_idx, 0, 2, 1);
+        SetMap(id, x_t_pred.block(landmark_idx, 0, 2, 1));
     }
 
     // cout << "Predicted state: " << x_t_pred.block(0, 0, 2, 1).transpose() << endl;
@@ -199,6 +198,8 @@ void EKF::CorrectStep(bool is_parallel)
         CorrectionStep();
 }
 
+
+
 void EKF::CorrectionStepParallel()
 {
 
@@ -206,20 +207,20 @@ void EKF::CorrectionStepParallel()
     Eigen::MatrixXd H_t = Eigen::MatrixXd::Zero(m, dim);
     Eigen::VectorXd Z_diff = Eigen::VectorXd::Zero(m);
 
-    vector<thread *> threads;
+    vector<thread> threads_v;
     int ct = 0;
 
     for (auto obs : z_t)
     {
         int id = obs.first;
         Eigen::Vector2d observation = obs.second;
-        threads.push_back(new thread(&EKF::ComputeObservationH, this, ct, ref(id), ref(observation), ref(m), ref(H_t), ref(Z_diff)));
+        threads_v.push_back(thread(&EKF::ComputeObservationH, this, ct, id, observation, ref(m), ref(H_t), ref(Z_diff)));
         ct++;
     }
 
-    for (thread *t : threads)
+    for (auto &t : threads_v)
     {
-        t->join();
+        t.join();
     }
 
     PerformUpdate(m, H_t, Z_diff);
@@ -263,13 +264,6 @@ void EKF::PerformUpdate(int m, Eigen::MatrixXd &H_t, Eigen::VectorXd &Z_diff)
 
 void EKF::MainLoop(string data, string world, bool parallel)
 {
-
-    // struct sigaction sa;
-    // memset(&sa, 0, sizeof(sa));
-    // sa.sa_handler = signalHandler;
-    // sigfillset(&sa.sa_mask);
-    // sigaction(SIGINT, &sa, NULL);
-
     // Read data.csv
     unordered_map<int, vector<string>> sensor_data = filereader->ReadFile(data);
     unordered_map<int, vector<string>> map_data = filereader->ReadFile(world);
@@ -309,7 +303,7 @@ void EKF::MainLoop(string data, string world, bool parallel)
         // cout << "Predicted sigma (correction step): \n" << ekf->sigma_t << endl;
 
         drawer->SetPoseCov(x_t.block(0, 0, 3, 1), sigma_t.block(0, 0, 2, 2));
-        drawer->SetMap(lmMap, map_t); // draw map lm
+        drawer->SetMap(lmMap, GetMap()); // draw map lm
         drawer->SetNewData(true);
         // cout << "Cov: \n" << ekf->sigma_t.block(0, 0, 3, 3) << endl;
         // if (quit.load())

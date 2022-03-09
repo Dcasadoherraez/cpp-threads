@@ -20,8 +20,8 @@ void Drawer::DrawerLoop()
     if (new_data) {
       Clear();
       DrawState(true);
-      DrawLandmarks(real_map, true);       // draw estimation
-      DrawLandmarks(predicted_map, false); // draw map lm
+      DrawLandmarks(real_map, false);       // draw estimation
+      DrawLandmarks(predicted_map, true); // draw map lm
       SetNewData(false);
     }
 
