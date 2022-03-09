@@ -47,10 +47,10 @@ int main(int argc, char **argv) {
         cout << "Invalid arg" << endl;
         return -1;
     }
-
+    
     cout << "Kalman Filter" << endl;
     double sensor_noise, motion_noise;
-
+    usleep(1000000);
     sensor_noise = 0.01; // * scale_square;
     motion_noise = 0.01; // * scale_square;
 

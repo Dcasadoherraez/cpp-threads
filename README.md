@@ -1,8 +1,14 @@
 
 # Abstract
+<p align="justify">
 With the empirical Moore's law, the number of transistors in a dense integrated circuit doubles each year. However, Dennard's scaling law has been broken, and since 2005 the frequency has began to stagnate. The most common way to deal with this has been parallel computing, where operations are spread over multiple cores. This parallelization is becoming popular in robotics due to their concurrent nature. This report will study from a practical perspective how to apply parallelization for multiple tasks in a C++ robotics context, demonstrating its usefulness in a simplified Extended Kalman Filter SLAM framework.
+</p>
+
+![image](ekf-slam/media/sample_run.gif)
+
 
 # Introduction
+<p align="justify">
 C++ has become one of the most popular programming languages to robotics. It provides low real-time performance, Object Oriented Design capabilities and easier to manage low level control than C. Since C++11, multithreading is supported providing a simple interface to the programmer. The topic can be divided into two main areas, threading, and shared resources. 
 
 On the one hand, threading provides the programmer with parallelization capabilities in multiple threads. Threads will be created when requested using multiple methods (functions, functors, lambda functions, async) and destroyed once the task is finished. 
@@ -10,13 +16,15 @@ On the one hand, threading provides the programmer with parallelization capabili
 On the other hand, understanding shared resources between multiple threads is essential in parallel programming, as they could lead to race conditions and wrong order of operations. This occurs as the optimizations performed to transform from code to machine instructions become observable, therefore mutexes and conditional variables become a way of handling these issues.
 
 In order to fully understand the scope of the topic, a 2D Extended Kalman Filter SLAM framework has been developed with multiple added parallelizations. The performance will be compared, and the tradeoffs will be studied.
+</p>
 
 # Multithreading 
-
+<p align="justify">
 The creation of threads in C++ comes from `std::thread` library. It can be based in four main approaches, functions, functors, lambda functions and asynchronous tasks. 
+</p>
 
 ## Using functions
-
+<p align="justify">
 When using a function in the thread creation, this function will be assigned to that thread taking its function parameters. There are two main cases for creating a thread using functions. Using a function, or using a class method. In both cases, if the argument is to be passed using the reference wrapper `std::ref`.
 
 Using a function does not require any additional considerations. 
@@ -33,7 +41,10 @@ std::thread my_class_thread = thread(&MyClass::MyFunction, class_instance, arg1,
 
 As soon as the thread is created, it will start processing. To wait for a thread to finish, it is necessary to use .join (`my_thread.join()`).
 
+</p>
+
 ## Using functors
+<p align="justify">
 
 Similar to the creation of threads using functions, the functors will use instances of a class to perform certain operations instead of calling the same function with different inputs. The function operation will be defined in its `operator()` method.
 
@@ -50,8 +61,10 @@ MyFunctorClass *functor = new MyFunctorClass();
 std::thread(std::ref(*functor), arg1, ref(arg2))
 
 ```
+</p>
 
 ## Using lambda functions
+<p align="justify">
 
 An alternative way to initialize threads in a compact way is to use lambda functions. These provide inline functions without an identifier. It has four main components:
 
@@ -72,8 +85,10 @@ std::thread([arg1] (int x) {
       return x;
 })
 ```
+</p>
 
 ## Using async
+<p align="justify">
 
 All the previous thread initializaiton methods are expected to run synchronously using the `.join()` method. But C++ also makes possible to run tasks asynchronously such that a receiver is notified after the task is finished. 
 
@@ -87,8 +102,10 @@ The implementation would be as follows.
 std::future<int> task_result = std::async(MyAsyncTask, arg1, ref(arg2));
 int data = task_result.get();
 ```
+</p>
 
 # Mutex and conditional variables
+<p align="justify">
 Using multiple threads can be of great advantage for task parallelization. However it doesn't come without drawbacks. Unlike processes, threads have a shared memory component that must be correctly handled by the programmer, otherwise potential deadlocks and race conditions will occur. 
 
 Suppose the following simple scenario, two threads trying to change the same variable to a different value.
@@ -103,14 +120,18 @@ The behaviors in this case is non-deterministic, as the variable could be assign
 Moreover, the operations are usually non-atomic. Changing a variable can be divided into multiple steps: 1) read from memory 2) change variable 3) set variable, and the operations can get interleaved.
 
 The best optimization in this case is to reduce as much as possible the shared data between threads. This might not always be possible, thus mutexes, locks, atomic operations and abstraction levels help the programmer achieve this. This report will survey the most popular ones in this case, mutexes, locks and conditional variables.
+</p>
 
 ## Mutexes and locks
+<p align="justify">
 
 Defining a mutex means to establish a critical section for a shared variable in which only one program at a time can access. There will be one mutex per critical section, and multiple critical sections can be established within a program.
 
 It can be managed in C++ using direct locks, lock guards, shared locks, unique locks, multiple locks. 
+</p>
 
 ### Direct lock:
+<p align="justify">
 
 The direct lock is the simplest form of a lock to access the mutex critical section. While one thread is holding a lock, the other will wait. However when an exception occurs, the mutex stays locked, causing a potential deadlock. In addition, it should be locked and unlocked manually by the programmer.
 
@@ -126,8 +147,10 @@ void Increment() {
     m.unlock();
 }
 ```
+</p>
 
 ### Lock Guard
+<p align="justify">
 
 Lock guard handles the disadvantage from the direct lock by unlocking as soon as it goes out of scope. It follows the RAII programming technique (Resource Acquisition as Initialization), and avoids deadlock if an exception or error occurs.
 
@@ -139,8 +162,10 @@ void main() {
     }
 }
 ```
+</p>
 
 ### Unique Lock (Lock Guard + Lock/Unlock)
+<p align="justify">
 
 The unique lock in C++ combines lock guard RAII with lock/unlock capabilities from the direct lock. It can be used to avoid long wait times where operations on non critical sections are being performed inside a function.
 
@@ -155,8 +180,10 @@ void main() {
     }
 }
 ```
+</p>
 
 ### Shared Lock
+<p align="justify">
 
 The shared lock allows for multiple reading operations from multiple threads, while having a single writer thread. In this strategy, the writer will hold a unique lock to enter the critical section until the task is finished. Then the readers will hold the shared lock to read the data. Note that the read and write operation cannot occur at the same time.
 
@@ -177,8 +204,10 @@ void Increment() {
 std::shared_lock<std::shared_mutex> sl(m);
 std::cout << "Count: " << ct << endl;
 ```
+</p>
 
 ### Multiple locks
+<p align="justify">
 
 When using multiple locks, there is a risk of a potential deadlock if not addressed properly. A popular example in this context is the dining philosophers problem.
 
@@ -207,11 +236,17 @@ void ThreadFunc1() {
 
 A solution to this can be to use a scoped lock, that locks all mutex or none of them and releases once out of scope `std::scoped_lock(m1, m2)`.
 
+</p>
+
 ## Conditional variables
+<p align="justify">
 
 Another sharing mechanism between threads has a producer/consumer pattern, in which one thread produces data and another one consumes it. Therefore there must be some synchronization between them. Shared memory and conditional variables can be used in this case.
 
+</p>
+
 ### Shared memory:
+<p align="justify">
 
 First, regarding shared memory, a critical section is defined in which data is written and a flag is set. The producer puts data into the shared memory and sets a ready flag.  The consumer checks for ready flag, and consumes it when available.
 
@@ -239,8 +274,10 @@ void DisplayTime() {
     }
 }
 ```
+</p>
 
 ### Conditional variable:
+<p align="justify">
 
 The conditional variable improves the previous shared memory communication by setting a notifier in the critical section. It is based in a two way handshaking between producer and cosumer. The steps for a shared variable in `std::mutex m` are:
 
@@ -309,10 +346,10 @@ void Producer() {
   }
 }
 ```
+</p>
 
-
-Parallelized EKF-SLAM
-=====================
+# Parallelized EKF-SLAM
+<p align="justify">
 
 After understanding all the practical concepts on C++ parallel
 programming, it is time to observe how it can be applied to a real
@@ -324,13 +361,14 @@ parallelizable sections will be studied, and the performance will be
 demonstrated.
 
 The problem formulation is based on Cyrill Stachniss lecture on robot
-mapping [@RobotMappingCourse] (University of Freiburg) as well as
+mapping [1] (University of Freiburg) as well as
 'Simultaneous localization and mapping with the extended Kalman filter'
-by Joan Solà [@Course]. The sensor data was generated by the same
+by Joan Solà [2]. The sensor data was generated by the same
 professor.
+</p>
 
-EKF-SLAM
---------
+## EKF-SLAM
+<p align="justify">
 
 The Extended Kalman Filter was one of the first approaches of SLAM by
 performing a local linearization of a nonlinear system. It couples the
@@ -338,71 +376,57 @@ current state of the robot only to the previous state and estimates is
 probability of being at the current state. The algorithm is divided into
 two main steps, prediction and correction.
 
-The state vector has a $3 + 2N$ length where $N$ is the number of
+The state vector has a 3 + 2N length where N is the number of
 landmarks. It is defined as
 
-$$x_t = (x, y, \theta, m_{1,x}, m_{1,y}, m_{2,x}, m_{2,y} ...)$$
+![equation](https://latex.codecogs.com/svg.image?x_t&space;=&space;(x,&space;y,&space;\theta,&space;m_{1,x},&space;m_{1,y},&space;m_{2,x},&space;m_{2,y}&space;...))
 
-Where $m_i =(m_{i,x}, m_{i,y})$ are the coordinates of the landmarks.
+Where ![equation](https://latex.codecogs.com/svg.image?m_i&space;=(m_{i,x},&space;m_{i,y})) are the coordinates of the landmarks.
 
-The covariance matrix is $2N x 2N$ defined as
-$$\Sigma_{t} =  \begin{pmatrix}
-\Sigma_{xx} & \Sigma_{xm} \\
-\Sigma_{mx} & \Sigma_{mm} 
-\end{pmatrix}$$
+The covariance matrix is 2N x 2N defined as
+
+![equation](https://latex.codecogs.com/svg.image?\Sigma_{t}&space;=&space;&space;\begin{pmatrix}\Sigma_{xx}&space;&&space;\Sigma_{xm}&space;\\\Sigma_{mx}&space;&&space;\Sigma_{mm}&space;\end{pmatrix})
 
 The input vector (odometry vector) is defined as
-$$u_t = (v_t, \delta_1, \delta_2)$$
+![equation](https://latex.codecogs.com/svg.image?u_t&space;=&space;(v_t,&space;\delta_1,&space;\delta_2))
+
 
 The measurements come in the form of id, range and bearing
-$z_i = (id, r_i, \phi_i)$, and they are interpreted as an unordered map
+![equation](https://latex.codecogs.com/svg.image?z_i&space;=&space;(id,&space;r_i,&space;\phi_i)), and they are interpreted as an unordered map
 in the C++ code.
 
 Note that all the measurements must come already asscociated into the
 algorithm.
+</p>
 
 ### Prediction step
+<p align="justify">
 
 In the prediction step, the estimated state is computed based on the
-motion model (Eq. [\[eq: motion\]](#eq: motion){reference-type="ref"
-reference="eq: motion"}) and an initial uncertainty (covariance) matrix
+motion model and an initial uncertainty (covariance) matrix
 is predicted from previous uncertainty and the motion model jacobian
-$G_t$ (Eq. [\[eq: cov\]](#eq: cov){reference-type="ref"
-reference="eq: cov"}).
+G_t.
 
-$$\label{eq: motion}
-    x_t^- = x_{t-1} + \begin{pmatrix}
-    v_t cos(\theta + \delta_1 ) \\
-    v_t sin(\theta + \delta_1 ) \\
-    \delta_1 + \delta_2 
-    \end{pmatrix}$$
+![equation](https://latex.codecogs.com/svg.image?\label{eq:&space;motion}&space;&space;&space;&space;x_t^-&space;=&space;x_{t-1}&space;&plus;&space;\begin{pmatrix}&space;&space;&space;&space;v_t&space;cos(\theta&space;&plus;&space;\delta_1&space;)&space;\\&space;&space;&space;&space;v_t&space;sin(\theta&space;&plus;&space;\delta_1&space;)&space;\\&space;&space;&space;&space;\delta_1&space;&plus;&space;\delta_2&space;&space;&space;&space;&space;\end{pmatrix})
 
-$$\label{eq: cov}
-    \Sigma_{t}^{-} = G_t \Sigma_{t - 1} G_{t}^T + R_t$$
+![equation](https://latex.codecogs.com/svg.image?\label{eq:&space;cov}&space;&space;&space;&space;\Sigma_{t}^{-}&space;=&space;G_t&space;\Sigma_{t&space;-&space;1}&space;G_{t}^T&space;&plus;&space;R_t)
 
 The jacobian of the motion model corresponds to the top-left component
-of a $3 + 2N$ identity matrix, and it is defined as
+of a 3 + 2N identity matrix, and it is defined as
 
-$$G_t^x = \begin{pmatrix}
-    1 & 0 & - v_t sin(\theta + \delta_1 ) \\
-    0 & 1 &   v_t cos(\theta + \delta_1 ) \\
-    0 & 0 & 1 
-    \end{pmatrix}$$
+![equation](https://latex.codecogs.com/svg.image?G_t^x&space;=&space;\begin{pmatrix}&space;&space;&space;&space;1&space;&&space;0&space;&&space;-&space;v_t&space;sin(\theta&space;&plus;&space;\delta_1&space;)&space;\\&space;&space;&space;&space;0&space;&&space;1&space;&&space;&space;&space;v_t&space;cos(\theta&space;&plus;&space;\delta_1&space;)&space;\\&space;&space;&space;&space;0&space;&&space;0&space;&&space;1&space;&space;&space;&space;&space;\end{pmatrix})
 
 At this point, it is interesting to expand the computation of the
-covariance matrix and observe it can be decomposed into three parts (Eq.
-[\[eq:covv\]](#eq:covv){reference-type="ref" reference="eq:covv"}).
+covariance matrix and observe it can be decomposed into three parts.
 
-$$\label{eq:covv}
-    \Sigma_{t}^{-} =  \begin{pmatrix}
-    G_t^x\Sigma_{xx}(G_t^x)^T & G_t^x\Sigma_{xm} \\
-    (G_t^x\Sigma_{xm})^T & \Sigma_{mm} 
-    \end{pmatrix}$$
+![equation](https://latex.codecogs.com/svg.image?\label{eq:covv}&space;&space;&space;&space;\Sigma_{t}^{-}&space;=&space;&space;\begin{pmatrix}&space;&space;&space;&space;G_t^x\Sigma_{xx}(G_t^x)^T&space;&&space;G_t^x\Sigma_{xm}&space;\\&space;&space;&space;&space;(G_t^x\Sigma_{xm})^T&space;&&space;\Sigma_{mm}&space;&space;&space;&space;&space;\end{pmatrix})
 
 This is a possibility of parallelizing computations, as the components
 do not depend on each other.
+</p>
 
 ### Correction step
+<p align="justify">
 
 After the first pose and covariance estimate, the correction computes a
 gain to reduce the error based on the landmark observations. As it will
@@ -411,45 +435,25 @@ performance.
 
 First, if the landmark has not been initialized yet, its location within
 the map is computed as the sum of the robot pose estimate plus the
-relative range sensor measurement (Eq.
-[\[eq:lm\]](#eq:lm){reference-type="ref" reference="eq:lm"}).
+relative range sensor measurement.
 
-$$\label{eq:lm}
-    m_i = x_t^-(x, y) +  \begin{pmatrix}
-                                r cos(\phi_i + x_t^-(\theta)) \\
-                                v_t sin(\phi_i + x_t^-(\theta)) \\
-                                \end{pmatrix}$$
+![equation](https://latex.codecogs.com/svg.image?\label{eq:lm}&space;m_i&space;=&space;x_t^-(x,&space;y)&space;&plus;&space;\begin{pmatrix}&space;r&space;cos(\phi_i&space;&plus;&space;x_t^-(\theta))&space;\\&space;v_t&space;sin(\phi_i&space;&plus;&space;x_t^-(\theta))&space;\\&space;\end{pmatrix})
 
 In order to be able to compare the expected distance from landmark to
-robot, the squared euclidean distance $q$ is computed as Eq.
-[\[eq:delta\]](#eq:delta){reference-type="ref" reference="eq:delta"}.
+robot, the squared euclidean distance q is computed.
 
-$$\label{eq:delta}
-    \begin{aligned}
-    \delta & = m_i - x_t^-(x, y) \\
-    q & = \delta \delta^T
-    \end{aligned}$$
+![equation](https://latex.codecogs.com/svg.image?\label{eq:delta}&space;&space;&space;&space;\begin{aligned}&space;&space;&space;&space;\delta&space;&&space;=&space;m_i&space;-&space;x_t^-(x,&space;y)&space;\\&space;&space;&space;&space;q&space;&&space;=&space;\delta&space;\delta^T&space;&space;&space;&space;\end{aligned})
 
-Once defined, the predicted measurement is given as Eq.
-[\[eq:z\_p\]](#eq:z_p){reference-type="ref" reference="eq:z_p"}.
-$$\label{eq:z_p}
-    z_t^{i-} = \begin{pmatrix}
-    \sqrt{q} \\
-    atan2(\delta_y, \delta_x) - x^-(\theta) \\
-    \end{pmatrix}$$
+Once defined, the predicted measurement is given as
+
+![equation](https://latex.codecogs.com/svg.image?\label{eq:z_p}&space;&space;&space;&space;z_t^{i-}&space;=&space;\begin{pmatrix}&space;&space;&space;&space;\sqrt{q}&space;\\&space;&space;&space;&space;atan2(\delta_y,&space;\delta_x)&space;-&space;x^-(\theta)&space;\\&space;&space;&space;&space;\end{pmatrix})
 
 The jacobian of the predicted measurement will have the size
-$2N$x$2N + 3$. In the subcomponent for each landmark, the first three
+2Nx2N + 3. In the subcomponent for each landmark, the first three
 columns refer to the derivative with respect to the robot pose. The
-other two non-empty columns correspond to the observed landmark index
-(Eq. [\[eq:h\_l\]](#eq:h_l){reference-type="ref" reference="eq:h_l"}).
+other two non-empty columns correspond to the observed landmark index.
 
-$$H_{low, t}^i  =$$ $$\label{eq:h_l}
-\frac{1}{q} 
-\begin{pmatrix}
--\sqrt{q} \delta_x & -\sqrt{q} \delta_y & 0 & 0 & ... & \sqrt{q} \delta_x & \sqrt{q} \delta_y  & .. & 0\\
-\delta_y & -\delta_x & -q & 0 & ... & -\delta_y & \delta_x & .. & 0
-\end{pmatrix}$$
+![equation](https://latex.codecogs.com/svg.image?H_{low,&space;t}^i&space;&space;=$$&space;$$\label{eq:h_l}\frac{1}{q}&space;\begin{pmatrix}-\sqrt{q}&space;\delta_x&space;&&space;-\sqrt{q}&space;\delta_y&space;&&space;0&space;&&space;0&space;&&space;...&space;&&space;\sqrt{q}&space;\delta_x&space;&&space;\sqrt{q}&space;\delta_y&space;&space;&&space;..&space;&&space;0\\\delta_y&space;&&space;-\delta_x&space;&&space;-q&space;&&space;0&space;&&space;...&space;&&space;-\delta_y&space;&&space;\delta_x&space;&&space;..&space;&&space;0\end{pmatrix})
 
 It is important to note in this case, that the computation of each
 landmark does not interfere with each other. Therefore the matrix $H$
@@ -461,54 +465,33 @@ landmarks and features need to be matched, which is out of the scope of
 this algorithm, and simulated in the experiments as a small time delay.
 
 The last steps of EKF SLAM are trivial and can be observed in the
-algorithm pseudocode Algorithm
-[\[alg:ekf\]](#alg:ekf){reference-type="ref" reference="alg:ekf"}.
+algorithm pseudocode.
 
-**In: $x_{t-1}$, $\Sigma{t-1}$, $u_t$, $z_t$**\
-**Out: $x_{t}$, $\Sigma{t}$**
+![image](ekf-slam/media/pseudocode.png)
 
-$x_t^- = x_{t-1} + \begin{pmatrix}
-    v_t cos(\theta + \delta_1 ) \\
-    v_t sin(\theta + \delta_1 ) \\
-    \delta_1 + \delta_2 
-    \end{pmatrix}$
+</p>
 
-$\Sigma_{t}^{-} = G_t \Sigma_{t - 1} G_{t}^T + R_t$
-$m_i = x_t^-(x, y) +  \begin{pmatrix}
-                                r cos(\phi_i + x_t^-(\theta)) \\
-                                v_t sin(\phi_i + x_t^-(\theta)) \\
-                                \end{pmatrix}$
-$\delta = m_i - x_t^-(x, y)$ $q = \delta \delta^T$
-$z_t^{i-} = \begin{pmatrix}
-    \sqrt{q} \\
-    atan2(\delta_y, \delta_x) - x^-(\theta) \\
-    \end{pmatrix}$ $H_{low, t}^i = \frac{1}{q} 
-\begin{pmatrix}
--\sqrt{q} \delta_x & -\sqrt{q} \delta_y & 0 & ...\\
-\delta_y & -\delta_x & -q & ... 
-\end{pmatrix}$ $K_t = \Sigma_t^- H_t^T(H_t \Sigma_t^- H_t^T + Q_t)^{-1}$
-$x_t = x_t^- + K_t(z - z^-)$ $\Sigma_t = (I - K_t H_t)\Sigma_t$
-
-EKF SLAM multithreading
------------------------
+## EKF SLAM multithreading
+<p align="justify">
 
 As seen in the previous section, there are two main areas of
 experimentation for multithreading in EKF SLAM. The first one is in the
-computation of the covariance matrix prediction $\Sigma^-$. The second
+computation of the covariance matrix prediction ![equation](https://latex.codecogs.com/svg.image?\Sigma^-). The second
 one is batch-computing the jacobian of the observation for each landmark
-$H_{low,t}^i$.
+![equation](https://latex.codecogs.com/svg.image?H_{low,t}^i).
 
 Two additional threads were used in order to display the robot movement
 in a 2D image as well as publishing of the current time. All the writing
 within threads is handled using unique locks for a data mutex in the
 class instance.
 
-An example picture of the visualization can be seen in Fig.
-[1](#fig:sample_run){reference-type="ref" reference="fig:sample_run"}.
+The visualization looks as follows. Improvements would include plotting the landmark uncertainty.
 
-![Sample run of EKF SLAM](sample_run.png){#fig:sample_run width="6.5cm"}
+![image](ekf-slam/media/sample_run.png)
+</p>
 
 ### Parallelize covariance prediction
+<p align="justify">
 
 The parallelization of the covariance leads to four separate functions,
 *GetTopLeft*, *GetTopRight*, *GetBottomLeft* and *GetBottomRight*. Each
@@ -521,8 +504,10 @@ sequential run was an order of magnitude lower at 0.0125ms. Varying the
 number of landmarks was limited by the Eigen C++ library to 100, which
 made the change in performance barely noticeable for having more or less
 landmarks.
+</p>
 
 ### Parallelize measurement prediction jacobian
+<p align="justify">
 
 The measurement prediction jacobian was parallelized by separating
 different landmark observations into different threads. As the
@@ -542,10 +527,12 @@ is 60.3ms, if it observes 2 landmarks, the delay is 20.3ms.
 However, parallelization improved this by dividing all the work into
 multiple threads, thus taking always 10.3ms no matter how many landmarks
 are seen.
+</p>
 
 ### Results and discussion
+<p align="justify">
 
-Table [1](#table:res){reference-type="ref" reference="table:res"} shows
+The following table shows
 the results mentioned earlier, demonstrating the two sides of
 multithreaded programming. It can be observed how thread creation is
 expensive. Spawning multiple threads for small problems reduces
@@ -554,10 +541,24 @@ require time such as feature matching and detection in a robot SLAM
 system can be spread across multiple threads. In such a case, an
 increase in throughput also means an increase in performance.
 
-::: {#table:res}
-                      **$\Sigma_t^-$ Computation (ms)**   **$H_t$ Computation (ms)**
-  ------------------- ----------------------------------- ----------------------------
-  **Single thread**   0.0125                              n of observations \* 10.3
-  **Multi thread**    0.12                                10.3
+|               | Covariance Computation (ms) | H_t Computation (ms)     |
+|---------------|-----------------------------|--------------------------|
+| Single thread | 0.0125                      | n of observations * 10.3 |
+| Multi thread  | 0.12                        | 10.3                     |
 
-  : [\[table:res\]]{#table:res label="table:res"}Experiment Results
+</p>
+
+# References
+<a id="1">[1]</a> 
+Cyrill Stachniss.
+EKF-SLAM
+https://www.youtube.com/watch?v=X30sEgIws0g&t=11s
+
+<a id="2">[2]</a> 
+Joan Solà.
+Simultaneous localization and mapping with the extended Kalman filter.
+https://www.iri.upc.edu/people/jsola/JoanSola/objectes/curs_SLAM/SLAM2D/SLAM%20course.pdf
+
+<a id="3">[3]</a> 
+Multithreading in 20 minutes
+https://www.youtube.com/watch?v=3aqxaZsvn80

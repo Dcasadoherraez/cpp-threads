@@ -275,7 +275,7 @@ void EKF::MainLoop(string data, string world, bool parallel)
     cout << "Going over " << sensor_data.size() << " states" << endl;
     while (data_ct < sensor_data.size() - 1)
     {
-        usleep(100000);
+        usleep(50000);
 
         u_t = filereader->GetInput(data_ct, sensor_data);
         z_t = filereader->GetObservations(data_ct, sensor_data);
