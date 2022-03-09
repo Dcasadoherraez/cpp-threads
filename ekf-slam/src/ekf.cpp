@@ -1,11 +1,5 @@
 #include "ekf.h"
 
-std::atomic<bool> quit(false); // signal flag
-void signalHandler(int signum)
-{
-    quit.store(true);
-}
-
 using namespace std;
 
 EKF::EKF(int s, double s_noise, double m_noise, double dt)
@@ -27,10 +21,10 @@ EKF::EKF(int s, double s_noise, double m_noise, double dt)
     sigma_t.block(3, 3, 2 * N, 2 * N) = Eigen::Matrix<double, 2 * N, 2 * N>::Ones() * INT_MAX; // landmark init
 
     map_t = {};
-    map_gt = {};
 
 }
 
+// set the angle in range [-pi, pi]
 double EKF::ConstrainAngle(double angle)
 {
     while (angle > M_PI)
@@ -44,6 +38,7 @@ double EKF::ConstrainAngle(double angle)
     return angle;
 }
 
+// EKF Prediction Step
 void EKF::PredictionStep(bool is_parallel)
 {
     PredictState();
@@ -54,6 +49,7 @@ void EKF::PredictionStep(bool is_parallel)
         PredictCovariance();
 }
 
+// Robot pose prediction based on motion model
 void EKF::PredictState()
 {
     Eigen::Vector3d update;
@@ -66,6 +62,7 @@ void EKF::PredictState()
     x_t_pred(2) = ConstrainAngle(x_t_pred(2));
 }
 
+// Block-by-block computation of the covariance matrix
 void EKF::GetTopLeft(Eigen::Matrix3d &G_t_x, Eigen::Matrix3d &R_t)
 {
     sigma_t_pred.block(0, 0, 3, 3) = G_t_x * sigma_t.block(0, 0, 3, 3) * G_t_x.transpose() + R_t;
@@ -85,18 +82,29 @@ void EKF::GetBottomRight(Eigen::Matrix3d &G_t_x)
     sigma_t_pred.block(3, 3, 2 * N, 2 * N) = sigma_t.block(3, 3, 2 * N, 2 * N);
 }
 
-void EKF::PredictCovarianceParallel()
-{
+Eigen::Matrix3d EKF::GetGtx() {
     Eigen::Matrix3d G_t_x;
 
     G_t_x << 1, 0, -u_t(0) * sin(x_t(2) + u_t(1) * delta_t),
-        0, 1, u_t(0) * cos(x_t(2) + u_t(1) * delta_t),
-        0, 0, 1;
+             0, 1, u_t(0) * cos(x_t(2) + u_t(1) * delta_t),
+             0, 0, 1;
+    
+    return G_t_x;
+}
 
+Eigen::Matrix3d EKF::GetRt() {
     Eigen::Matrix3d R_t;
     R_t << motion_noise / (scale), 0, 0,
-        0, motion_noise / (scale), 0,
-        0, 0, motion_noise / (100 * scale * scale);
+           0, motion_noise / (scale), 0,
+           0, 0, motion_noise / (100 * scale * scale);
+
+    return R_t;
+}
+
+void EKF::PredictCovarianceParallel()
+{
+    Eigen::Matrix3d G_t_x = GetGtx();
+    Eigen::Matrix3d R_t = GetRt();
 
     vector<thread *> threads;
 
@@ -113,16 +121,8 @@ void EKF::PredictCovarianceParallel()
 
 void EKF::PredictCovariance()
 {
-    Eigen::Matrix3d G_t_x;
-
-    G_t_x << 1, 0, -u_t(0) * sin(x_t(2) + u_t(1) * delta_t),
-        0, 1, u_t(0) * cos(x_t(2) + u_t(1) * delta_t),
-        0, 0, 1;
-
-    Eigen::Matrix3d R_t;
-    R_t << motion_noise / (scale), 0, 0,
-        0, motion_noise / (scale), 0,
-        0, 0, motion_noise / (100 * scale * scale);
+    Eigen::Matrix3d G_t_x = GetGtx();
+    Eigen::Matrix3d R_t = GetRt();
 
     // top left block
     GetTopLeft(G_t_x, R_t);
@@ -137,6 +137,7 @@ void EKF::PredictCovariance()
     GetBottomRight(G_t_x);
 }
 
+// Compute the observation jacobian block for 1 landmark
 void EKF::ComputeObservationH(int ct, int id, Eigen::Vector2d observation, int &m, Eigen::MatrixXd &H_t, Eigen::VectorXd &Z_diff)
 {
     this_thread::sleep_for(chrono::milliseconds(10));
@@ -156,10 +157,6 @@ void EKF::ComputeObservationH(int ct, int id, Eigen::Vector2d observation, int &
         SetMap(id, x_t_pred.block(landmark_idx, 0, 2, 1));
     }
 
-    // cout << "Predicted state: " << x_t_pred.block(0, 0, 2, 1).transpose() << endl;
-    // cout << "Predicted landmark " << landmark_idx << ": " << x_t_pred(landmark_idx) << "," << x_t_pred(landmark_idx + 1) << endl;
-    // cout << "Measurement: " << observation.transpose() << endl;
-
     // delta = landmark pose - robot pose (same as relative measurement)
     Eigen::Vector2d delta = x_t_pred.block(landmark_idx, 0, 2, 1) - x_t_pred.block(0, 0, 2, 1);
 
@@ -172,10 +169,6 @@ void EKF::ComputeObservationH(int ct, int id, Eigen::Vector2d observation, int &
 
     Z_diff(ct * 2) = r - z_pred(0);
     Z_diff(ct * 2 + 1) = ConstrainAngle(phi - z_pred(1));
-
-    // Eigen::Matrix<double, 5, dim> F = Eigen::Matrix<double, 5, dim>::Zero();
-    // F.block(0, 0, 3, 3) = Eigen::Matrix3d::Identity();
-    // F.block(3, 3 + 2*id, 2, 2) = Eigen::Matrix2d::Identity();
 
     Eigen::Matrix<double, 2, dim> H_low = Eigen::Matrix<double, 2, dim>::Zero();
 
@@ -198,11 +191,8 @@ void EKF::CorrectStep(bool is_parallel)
         CorrectionStep();
 }
 
-
-
 void EKF::CorrectionStepParallel()
 {
-
     int m = 2 * z_t.size();
     Eigen::MatrixXd H_t = Eigen::MatrixXd::Zero(m, dim);
     Eigen::VectorXd Z_diff = Eigen::VectorXd::Zero(m);
@@ -228,7 +218,6 @@ void EKF::CorrectionStepParallel()
 
 void EKF::CorrectionStep()
 {
-
     int m = 2 * z_t.size();
     Eigen::MatrixXd H_t = Eigen::MatrixXd::Zero(m, dim);
     Eigen::VectorXd Z_diff = Eigen::VectorXd::Zero(m);
@@ -277,6 +266,7 @@ void EKF::MainLoop(string data, string world, bool parallel)
     {
         usleep(50000);
 
+        // Get the current input and sensor readings
         u_t = filereader->GetInput(data_ct, sensor_data);
         z_t = filereader->GetObservations(data_ct, sensor_data);
 
@@ -286,11 +276,6 @@ void EKF::MainLoop(string data, string world, bool parallel)
         auto endP = chrono::system_clock::now();
         chrono::duration<float, milli> durationP = endP - startP;
         cout << "Pred. t: " << durationP.count();
-        // cout << "Predicted pose (prediction step): \n" << ekf->x_t_pred << endl;
-        // cout << "Predicted sigma (prediction step): \n" << ekf->sigma_t_pred << endl;
-
-        // drawer->DrawState(ekf->x_gt.block(0, 0, 3, 1), Eigen::Matrix3d::Zero(), false);
-        // drawer->DrawLandmarks(ekf->map_gt, false);
 
         // Correct
         auto startC = chrono::system_clock::now();
@@ -299,16 +284,9 @@ void EKF::MainLoop(string data, string world, bool parallel)
         chrono::duration<float, milli> durationC = endC - startC;
         cout << " Corr. t: " << durationC.count() << endl;
 
-        // cout << "Predicted pose (correction step): \n" << ekf->x_t << endl;
-        // cout << "Predicted sigma (correction step): \n" << ekf->sigma_t << endl;
-
         drawer->SetPoseCov(x_t.block(0, 0, 3, 1), sigma_t.block(0, 0, 2, 2));
         drawer->SetMap(lmMap, GetMap()); // draw map lm
         drawer->SetNewData(true);
-        // cout << "Cov: \n" << ekf->sigma_t.block(0, 0, 3, 3) << endl;
-        // if (quit.load())
-        //     break; // exit normally after SIGINT
-
     }
 
     cout << "Closing EKF-SLAM..." << endl;

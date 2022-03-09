@@ -1,5 +1,6 @@
 #include "drawer.h"
 
+// Initialize drawer to a new thread
 Drawer::Drawer()
 {
   new_data = false;
@@ -10,6 +11,7 @@ Drawer::Drawer()
   drawer_thread = thread(&Drawer::DrawerLoop, this);
 }
 
+// Main drawer loop that updates once new data is received
 void Drawer::DrawerLoop()
 {
   while (!stop)
@@ -17,44 +19,45 @@ void Drawer::DrawerLoop()
     cv::imshow("image", current_drawing);
     cv::waitKey(1);
 
-    if (new_data) {
+    if (new_data)
+    {
       Clear();
       DrawState(true);
-      DrawLandmarks(real_map, false);       // draw estimation
+      DrawLandmarks(real_map, false);     // draw estimation
       DrawLandmarks(predicted_map, true); // draw map lm
       SetNewData(false);
     }
 
-    if (new_time) {
-        DrawTime();
-        SetNewTime("", false);
+    if (new_time)
+    {
+      DrawTime();
+      SetNewTime("", false);
     }
-
   }
+  drawer_thread.join(),
 
   cout << "Closing drawer..." << endl;
 }
 
+// Empty current drawing
 void Drawer::Clear()
 {
-  current_drawing = cv::Mat(1000, 1000, CV_8UC3, cv::Scalar(255, 255, 255));;
+  current_drawing = cv::Mat(1000, 1000, CV_8UC3, cv::Scalar(255, 255, 255));
+  ;
 }
 
-void Drawer::DrawTime() {
-
+// Draw the current time
+void Drawer::DrawTime()
+{
   cv::Point pos;
   pos.x = 600;
   pos.y = 50;
 
-  cv::putText(current_drawing,      // target image
-              time, // text
-              pos,              // top-left position
-              cv::FONT_HERSHEY_DUPLEX,
-              0.8,
-              cv::Scalar(255, 0, 255),
-              2);
+  cv::putText(current_drawing, time, pos, cv::FONT_HERSHEY_DUPLEX,
+              0.8, cv::Scalar(255, 0, 255), 2);
 }
 
+// Draw current robot state
 void Drawer::DrawState(bool prediction)
 {
 
@@ -80,19 +83,12 @@ void Drawer::DrawState(bool prediction)
   orientation.x = center.x + 50 * cos(pose[2]);
   orientation.y = center.y + 50 * sin(pose[2]);
 
-  cv::circle(current_drawing,
-             center,
-             5,
-             color,
-             cv::FILLED);
-
-  cv::arrowedLine(current_drawing,
-                  center, orientation,
-                  color);
-
+  cv::circle(current_drawing, center, 5, color, cv::FILLED);
+  cv::arrowedLine(current_drawing, center, orientation, color);
   cv::ellipse(current_drawing, ellipse, color, 1);
 }
 
+// Draw map landmarks
 void Drawer::DrawLandmarks(unordered_map<int, Eigen::Vector2d> positions, bool prediction)
 {
 
@@ -118,23 +114,15 @@ void Drawer::DrawLandmarks(unordered_map<int, Eigen::Vector2d> positions, bool p
     bottomright.x = pos.second[0] + 5;
     bottomright.y = pos.second[1] + 5;
 
-    cv::rectangle(current_drawing,
-                  topleft, bottomright,
-                  color,
-                  cv::FILLED);
+    cv::rectangle(current_drawing, topleft, bottomright, color, cv::FILLED);
 
-    cv::putText(current_drawing,      // target image
-                to_string(pos.first), // text
-                topleft,              // top-left position
-                cv::FONT_HERSHEY_DUPLEX,
-                0.8,
-                color,
-                2);
+    cv::putText(current_drawing, to_string(pos.first), topleft, cv::FONT_HERSHEY_DUPLEX,
+                0.8, color, 2);
   }
 }
 
+// Draw covariance ellipse, copied from:
 // https://gist.github.com/eroniki/2cff517bdd3f9d8051b5
-
 cv::RotatedRect Drawer::GetErrorEllipse()
 {
 
@@ -167,9 +155,6 @@ cv::RotatedRect Drawer::GetErrorEllipse()
   double ax = max(halfmajoraxissize, halfminoraxissize);
   halfmajoraxissize = isnan(halfmajoraxissize) ? halfminoraxissize : halfmajoraxissize;
   halfminoraxissize = isnan(halfminoraxissize) ? halfmajoraxissize : halfminoraxissize;
-
-  // cout << covmat << endl;
-  // cout << "Ellipse: " << halfmajoraxissize << "," << halfminoraxissize << endl;
 
   // Return the oriented ellipse
   // The -angle is used because OpenCV defines the angle clockwise instead of anti-clockwise

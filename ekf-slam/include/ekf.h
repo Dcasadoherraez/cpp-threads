@@ -26,11 +26,12 @@ using namespace std;
 
 class EKF
 {
+private:
+    mutex data_mutex;
+
 public:
     typedef shared_ptr<EKF> Ptr;
     
-    mutex data_mutex;
-
     Drawer::Ptr drawer;
     FileReader::Ptr filereader;
 
@@ -44,24 +45,28 @@ public:
 
     // current input
     Eigen::Vector3d u_t;
+    
+    // current readings
     unordered_map<int, Eigen::Vector2d> z_t;
 
+    // state and covariance
     Eigen::Matrix<double, dim, 1> x_t, x_t_pred;
     Eigen::Matrix<double, dim, dim> sigma_t, sigma_t_pred;
 
     // landmark vector {id, [x, y]}
-    unordered_map<int, Eigen::Vector2d> map_t, map_gt;
+    unordered_map<int, Eigen::Vector2d> map_t;
 
     EKF(int scale, double sensor_uncertainty, double motion_uncertainty, double dt);
 
-    ~EKF() {}
 
-    void MainLoop(string data, string world, bool parallel);
-
+    // Utils
     double ConstrainAngle(double x);
+    void MainLoop(string data, string world, bool parallel);
 
     // EKF-SLAM Steps
     void PredictionStep(bool is_parallel);
+    Eigen::Matrix3d GetGtx();
+    Eigen::Matrix3d GetRt();
     void CorrectStep(bool is_parallel);
 
     // Sequential processing
@@ -70,17 +75,18 @@ public:
     void CorrectionStep();
 
     // Parallel processing
-    void ParallelPrint();
     void PredictCovarianceParallel();
     void GetTopLeft(Eigen::Matrix3d &G_t_x, Eigen::Matrix3d &R_t);
     void GetTopRight(Eigen::Matrix3d &G_t_x);
     void GetBottomLeft(Eigen::Matrix3d &G_t_x);
     void GetBottomRight(Eigen::Matrix3d &G_t_x);
-
     void CorrectionStepParallel();
+
+    // Common functions
     void ComputeObservationH(int ct, int id, Eigen::Vector2d observation, int &m, Eigen::MatrixXd &H_t, Eigen::VectorXd &Z_diff);
     void PerformUpdate(int m, Eigen::MatrixXd &H_t, Eigen::VectorXd &Z_diff);
 
+    // Map handling 
     void InitMap() {
         unique_lock<std::mutex> lck(data_mutex);
         map_t = {};
@@ -94,7 +100,6 @@ public:
         unique_lock<std::mutex> lck(data_mutex);
         return map_t;
     }
-
 
     bool IsInMap(int id) {
         unique_lock<std::mutex> lck(data_mutex);

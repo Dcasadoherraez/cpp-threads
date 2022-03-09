@@ -9,6 +9,7 @@
 
 #include "file_reader.h"
 
+// Read entire file to a string
 string FileReader::ReadFileIntoString(const string& path) {
     auto ss = ostringstream{};
     ifstream input_file(path);
@@ -21,6 +22,7 @@ string FileReader::ReadFileIntoString(const string& path) {
     return ss.str();
 }
 
+// Read an entire file and convert it into map with the form of {line_id: vector of words}
 unordered_map<int, vector<string>> FileReader::ReadFile(string filename) {
     string file_contents;
     unordered_map<int, vector<string>> csv_contents;
@@ -46,6 +48,7 @@ unordered_map<int, vector<string>> FileReader::ReadFile(string filename) {
     return csv_contents;
 }
 
+// Get the odometry input for the robot
 Eigen::Vector3d FileReader::GetInput(int &ct, unordered_map<int, vector<string>> data) {
     Eigen::Vector3d u_t;
     if (data[ct][0] == "ODOMETRY") {
@@ -59,6 +62,7 @@ Eigen::Vector3d FileReader::GetInput(int &ct, unordered_map<int, vector<string>>
     return u_t;
 }
 
+// Get the sensor readings for the current state
 unordered_map<int, Eigen::Vector2d> FileReader::GetObservations(int &ct, unordered_map<int, vector<string>> data) {
     unordered_map<int, Eigen::Vector2d> observationList;
 
@@ -75,6 +79,7 @@ unordered_map<int, Eigen::Vector2d> FileReader::GetObservations(int &ct, unorder
     return observationList;
 }
 
+// Get the environment map from file
 unordered_map<int, Eigen::Vector2d> FileReader::GetMap(unordered_map<int, vector<string>> lmMap) {
     unordered_map<int, Eigen::Vector2d> landmarks;
 
@@ -86,35 +91,4 @@ unordered_map<int, Eigen::Vector2d> FileReader::GetMap(unordered_map<int, vector
     }
 
     return landmarks;
-}
-
-Eigen::Vector3d FileReader::GetUserInput() {
-    cout << "Input robot command in deg. [v, w]: ";
-    Eigen::Vector3d u_t;
-    cin >> u_t[0];
-    cin >> u_t[1];
-    cin >> u_t[2];
-
-    u_t[1] *= M_PI/180;
-    u_t[2] *= M_PI/180;
-
-    return u_t;
-}
-
-unordered_map<int, Eigen::Vector2d> FileReader::GetUserObservations(int &N) {
-    unordered_map<int, Eigen::Vector2d> observationList;
-    for (int i = 0; i < N; i++) {
-        cout << "Input new observation, write -1 when done [id, r, phi]: ";
-        Eigen::Vector2d obs;
-        int id;
-        cin >> id;
-        if (id == -1) break;
-        cin >> obs[0];
-        cin >> obs[1];
-
-        obs[1] *= M_PI/180;
-        observationList[id] = obs;
-    }
-
-    return observationList;
 }

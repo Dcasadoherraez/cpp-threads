@@ -14,9 +14,18 @@ Requirements:
 Compilation using cmake:
 ```
 mkdir build
+cd build
 cmake ..
 make
 ``` 
+
+How to run (from build directory):
+```
+// Multithreaded
+./multi_threaded_ekf_node 1
+// Sequential
+./multi_threaded_ekf_node 0
+```
 
 This simulation performs Simultaneous Localization and
 Mapping (SLAM) of a robot in a 2D world. The robot measurement is based
