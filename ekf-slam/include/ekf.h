@@ -35,7 +35,7 @@ public:
     Drawer::Ptr drawer;
     FileReader::Ptr filereader;
 
-    static const int N = 35; // num of landmarks
+    static const int N = 10; // num of landmarks
     static const int dim = 2 * N + 3;
     double delta_t;
     int scale;

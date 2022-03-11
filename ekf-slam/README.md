@@ -57,7 +57,7 @@ Where ![equation](https://latex.codecogs.com/svg.image?m_i&space;=(m_{i,x},&spac
 
 The covariance matrix is 2N x 2N defined as
 
-![equation](https://latex.codecogs.com/svg.image?\Sigma_{t}&space;=&space;&space;\begin{pmatrix}\Sigma_{xx}&space;&&space;\Sigma_{xm}&space;\\\Sigma_{mx}&space;&&space;\Sigma_{mm}&space;\end{pmatrix})
+![equation](https://latex.codecogs.com/svg.image?\Sigma_{t}=\begin{pmatrix}\Sigma_{xx}&space;&&space;\Sigma_{xm}\\\\\Sigma_{mx}&space;&&space;\Sigma_{mm}\end{pmatrix})
 
 The input vector (odometry vector) is defined as
 ![equation](https://latex.codecogs.com/svg.image?u_t&space;=&space;(v_t,&space;\delta_1,&space;\delta_2))
@@ -79,19 +79,19 @@ motion model and an initial uncertainty (covariance) matrix
 is predicted from previous uncertainty and the motion model jacobian
 G_t.
 
-![equation](https://latex.codecogs.com/svg.image?\label{eq:&space;motion}&space;&space;&space;&space;x_t^-&space;=&space;x_{t-1}&space;&plus;&space;\begin{pmatrix}&space;&space;&space;&space;v_t&space;cos(\theta&space;&plus;&space;\delta_1&space;)&space;\\&space;&space;&space;&space;v_t&space;sin(\theta&space;&plus;&space;\delta_1&space;)&space;\\&space;&space;&space;&space;\delta_1&space;&plus;&space;\delta_2&space;&space;&space;&space;&space;\end{pmatrix})
+![equation](https://latex.codecogs.com/svg.image?\label{eq:&space;motion}&space;&space;&space;&space;x_t^-&space;=&space;x_{t-1}&space;&plus;&space;\begin{pmatrix}&space;&space;&space;&space;v_t&space;cos(\theta&space;&plus;&space;\delta_1&space;)&space;\\\\&space;&space;&space;&space;v_t&space;sin(\theta&space;&plus;&space;\delta_1&space;)&space;\\\\&space;&space;&space;&space;\delta_1&space;&plus;&space;\delta_2&space;&space;&space;&space;&space;\end{pmatrix})
 
 ![equation](https://latex.codecogs.com/svg.image?\label{eq:&space;cov}&space;&space;&space;&space;\Sigma_{t}^{-}&space;=&space;G_t&space;\Sigma_{t&space;-&space;1}&space;G_{t}^T&space;&plus;&space;R_t)
 
 The jacobian of the motion model corresponds to the top-left component
 of a 3 + 2N identity matrix, and it is defined as
 
-![equation](https://latex.codecogs.com/svg.image?G_t^x&space;=&space;\begin{pmatrix}&space;&space;&space;&space;1&space;&&space;0&space;&&space;-&space;v_t&space;sin(\theta&space;&plus;&space;\delta_1&space;)&space;\\&space;&space;&space;&space;0&space;&&space;1&space;&&space;&space;&space;v_t&space;cos(\theta&space;&plus;&space;\delta_1&space;)&space;\\&space;&space;&space;&space;0&space;&&space;0&space;&&space;1&space;&space;&space;&space;&space;\end{pmatrix})
+![equation](https://latex.codecogs.com/svg.image?G_t^x&space;=&space;\begin{pmatrix}&space;&space;&space;&space;1&space;&&space;0&space;&&space;-&space;v_t&space;sin(\theta&space;&plus;&space;\delta_1&space;)&space;\\\\&space;&space;&space;&space;0&space;&&space;1&space;&&space;&space;&space;v_t&space;cos(\theta&space;&plus;&space;\delta_1&space;)&space;\\\\&space;&space;&space;&space;0&space;&&space;0&space;&&space;1&space;&space;&space;&space;&space;\end{pmatrix})
 
 At this point, it is interesting to expand the computation of the
 covariance matrix and observe it can be decomposed into three parts.
 
-![equation](https://latex.codecogs.com/svg.image?\label{eq:covv}&space;&space;&space;&space;\Sigma_{t}^{-}&space;=&space;&space;\begin{pmatrix}&space;&space;&space;&space;G_t^x\Sigma_{xx}(G_t^x)^T&space;&&space;G_t^x\Sigma_{xm}&space;\\&space;&space;&space;&space;(G_t^x\Sigma_{xm})^T&space;&&space;\Sigma_{mm}&space;&space;&space;&space;&space;\end{pmatrix})
+![equation](https://latex.codecogs.com/svg.image?\Sigma_{t}^{-}&space;=&space;&space;\begin{pmatrix}G_t^x\Sigma_{xx}(G_t^x)^T&space;&&space;G_t^x\Sigma_{xm}\\\\(G_t^x\Sigma_{xm})^T&space;&&space;\Sigma_{mm}&space;\end{pmatrix}&space;&space;&plus;&space;R_t)
 
 This is a possibility of parallelizing computations, as the components
 do not depend on each other.
@@ -109,16 +109,16 @@ First, if the landmark has not been initialized yet, its location within
 the map is computed as the sum of the robot pose estimate plus the
 relative range sensor measurement.
 
-![equation](https://latex.codecogs.com/svg.image?\label{eq:lm}&space;m_i&space;=&space;x_t^-(x,&space;y)&space;&plus;&space;\begin{pmatrix}&space;r&space;cos(\phi_i&space;&plus;&space;x_t^-(\theta))&space;\\&space;v_t&space;sin(\phi_i&space;&plus;&space;x_t^-(\theta))&space;\\&space;\end{pmatrix})
+![equation](https://latex.codecogs.com/svg.image?\label{eq:lm}&space;m_i&space;=&space;x_t^-(x,&space;y)&space;&plus;&space;\begin{pmatrix}&space;r&space;cos(\phi_i&space;&plus;&space;x_t^-(\theta))&space;\\\\&space;v_t&space;sin(\phi_i&space;&plus;&space;x_t^-(\theta))&space;\\&space;\end{pmatrix})
 
 In order to be able to compare the expected distance from landmark to
 robot, the squared euclidean distance q is computed.
 
-![equation](https://latex.codecogs.com/svg.image?\label{eq:delta}&space;&space;&space;&space;\begin{aligned}&space;&space;&space;&space;\delta&space;&&space;=&space;m_i&space;-&space;x_t^-(x,&space;y)&space;\\&space;&space;&space;&space;q&space;&&space;=&space;\delta&space;\delta^T&space;&space;&space;&space;\end{aligned})
+![equation](https://latex.codecogs.com/svg.image?\label{eq:delta}&space;&space;&space;&space;\begin{aligned}&space;&space;&space;&space;\delta&space;&&space;=&space;m_i&space;-&space;x_t^-(x,&space;y)&space;\\\\&space;&space;&space;&space;q&space;&&space;=&space;\delta&space;\delta^T&space;&space;&space;&space;\end{aligned})
 
 Once defined, the predicted measurement is given as
 
-![equation](https://latex.codecogs.com/svg.image?\label{eq:z_p}&space;&space;&space;&space;z_t^{i-}&space;=&space;\begin{pmatrix}&space;&space;&space;&space;\sqrt{q}&space;\\&space;&space;&space;&space;atan2(\delta_y,&space;\delta_x)&space;-&space;x^-(\theta)&space;\\&space;&space;&space;&space;\end{pmatrix})
+![equation](https://latex.codecogs.com/svg.image?\label{eq:z_p}&space;&space;&space;&space;z_t^{i-}&space;=&space;\begin{pmatrix}&space;&space;&space;&space;\sqrt{q}&space;\\\\&space;&space;&space;&space;atan2(\delta_y,&space;\delta_x)&space;-&space;x^-(\theta)&space;\\&space;&space;&space;&space;\end{pmatrix})
 
 The jacobian of the predicted measurement will have the size
 2Nx2N + 3. In the subcomponent for each landmark, the first three

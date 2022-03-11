@@ -204,7 +204,8 @@ void EKF::CorrectionStepParallel()
     {
         int id = obs.first;
         Eigen::Vector2d observation = obs.second;
-        threads_v.push_back(thread(&EKF::ComputeObservationH, this, ct, id, observation, ref(m), ref(H_t), ref(Z_diff)));
+        threads_v.push_back(thread(&EKF::ComputeObservationH, this, 
+                            ct, id, observation, ref(m), ref(H_t), ref(Z_diff)));
         ct++;
     }
 
@@ -275,14 +276,14 @@ void EKF::MainLoop(string data, string world, bool parallel)
         PredictionStep(parallel);
         auto endP = chrono::system_clock::now();
         chrono::duration<float, milli> durationP = endP - startP;
-        cout << "Pred. t: " << durationP.count();
+        // cout << "Pred. t: " << durationP.count();
 
         // Correct
         auto startC = chrono::system_clock::now();
         CorrectStep(parallel);
         auto endC = chrono::system_clock::now();
         chrono::duration<float, milli> durationC = endC - startC;
-        cout << " Corr. t: " << durationC.count() << endl;
+        // cout << " Corr. t: " << durationC.count() << endl;
 
         drawer->SetPoseCov(x_t.block(0, 0, 3, 1), sigma_t.block(0, 0, 2, 2));
         drawer->SetMap(lmMap, GetMap()); // draw map lm
